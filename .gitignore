@@ -1,1 +1,6 @@
+# vagrant folder
 .vagrant
+
+# keys
+vagrant_docker_key
+vagrant_docker_key.pub

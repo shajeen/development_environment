@@ -1,0 +1,19 @@
+Vagrant.configure("2") do |config|
+    config.vm.provider "docker" do |d|
+      d.image = "ubuntu-ssh"
+      d.has_ssh = true
+      d.privileged = true
+      d.ports = ["2222:22"]
+      d.remains_running = true
+    end
+  
+    # Set the SSH username and configure the private key
+    config.ssh.username = "root"
+    config.ssh.private_key_path = "vagrant_docker_key"
+    config.ssh.insert_key = false
+  
+    # Disable synced folder if not needed
+    config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  end
+  
