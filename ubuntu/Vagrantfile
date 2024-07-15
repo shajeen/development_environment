@@ -1,0 +1,21 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure(2) do |config|
+    config.vm.hostname = "ubuntu-cuda"
+    config.vm.box_check_update = false
+    config.vm.synced_folder ".", "/vagrant", disabled: "true"
+
+      
+    ############################################################
+    # Provider for Docker on Intel
+    ############################################################
+    config.vm.provider :docker do |docker, override|
+      docker.image = "ubuntu-cuda-image"
+      docker.has_ssh = true
+      docker.privileged = true
+      docker.remains_running = false
+      docker.volumes = ["/sys/fs/cgroup:/sys/fs/cgroup:rw"]
+      docker.create_args = ["--cgroupns=host", "--gpus", "all"]
+    end    
+  end
