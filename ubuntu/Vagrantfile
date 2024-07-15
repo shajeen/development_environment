@@ -8,7 +8,7 @@ Vagrant.configure("2") do |config|
       d.ports = ["1000:22"]  # Map container's SSH port 22 to host port 1000
       d.remains_running = true
     end
-    
+
     # SSH settings
     node.vm.communicator = "ssh"
     node.ssh.username = "root"  # Use 'root' as the SSH username (make sure your Docker setup allows root SSH login)

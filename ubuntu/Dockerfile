@@ -1,6 +1,8 @@
 # Use the official Ubuntu image as the base image
 FROM ubuntu:latest
 
+LABEL MAINTAINER="Shajeen Ahamed <shajeenahmed@gmail.com>"
+
 # Install OpenSSH server and sudo
 RUN apt-get update && \
     apt-get install -y openssh-server sudo && \

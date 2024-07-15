@@ -2,33 +2,28 @@ FROM nvidia/cuda:12.3.1-devel-ubuntu22.04
 
 LABEL MAINTAINER="Shajeen Ahamed <shajeenahmed@gmail.com>"
 
-RUN apt-get update; \
-    apt-get -y install openssh-server passwd sudo; \
-    apt-get -qq clean; \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+# Install OpenSSH server and sudo
+RUN apt-get update && \
+    apt-get install -y openssh-server sudo && \
+    mkdir /var/run/sshd && \
+    echo 'root:root' | chpasswd && \
+    sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
+    echo 'UseDNS no' >> /etc/ssh/sshd_config && \
+    echo 'PasswordAuthentication yes' >> /etc/ssh/sshd_config
 
-RUN (cd /lib/systemd/system/sysinit.target.wants/; for i in *; do [ $i == systemd-tmpfiles-setup.service ] || rm -f $i; done); \
-    rm -f /lib/systemd/system/multi-user.target.wants/*; \
-    rm -f /etc/systemd/system/*.wants/*; \
-    rm -f /lib/systemd/system/local-fs.target.wants/*; \
-    rm -f /lib/systemd/system/sockets.target.wants/*udev*; \
-    rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
-    rm -f /lib/systemd/system/basic.target.wants/*; \
-    rm -f /lib/systemd/system/anaconda.target.wants/*;
+# Set up a new user 'vagrant' with password 'vagrant' and sudo privileges
+RUN useradd -ms /bin/bash vagrant && \
+    echo 'vagrant:vagrant' | chpasswd && \
+    usermod -aG sudo vagrant
 
-RUN systemctl enable ssh.service; 
+# Add the SSH public key to the vagrant user's authorized_keys
+COPY ssh/vagrant_docker_key.pub /home/vagrant/.ssh/authorized_keys
+RUN chown -R vagrant:vagrant /home/vagrant/.ssh && \
+    chmod 700 /home/vagrant/.ssh && \
+    chmod 600 /home/vagrant/.ssh/authorized_keys
 
-RUN useradd --create-home -s /bin/bash vagrant; \
-    echo -e "vagrant\nvagrant" | (passwd --stdin vagrant); \
-    echo 'vagrant ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/vagrant; \
-    chmod 440 /etc/sudoers.d/vagrant
+# Expose SSH port
+EXPOSE 22
 
-RUN mkdir -p /home/vagrant/.ssh; \
-    chmod 700 /home/vagrant/.ssh
-ADD https://raw.githubusercontent.com/hashicorp/vagrant/master/keys/vagrant.pub /home/vagrant/.ssh/authorized_keys
-RUN chmod 600 /home/vagrant/.ssh/authorized_keys; \
-    chown -R vagrant:vagrant /home/vagrant/.ssh
-
-VOLUME [ "/sys/fs/cgroup" ]
-
-CMD ["/usr/sbin/init"]
+# Start SSH service
+CMD ["/usr/sbin/sshd", "-D"]
