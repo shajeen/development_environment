@@ -1,0 +1,21 @@
+Vagrant.configure("2") do |config|
+  config.vm.define "docker-python-core" do |node|
+    # Configure Docker provider
+    node.vm.provider "docker" do |d|
+      d.image = "python-core-latest"
+      d.has_ssh = true
+      d.privileged = true  # Optional: If your Docker setup requires privileged mode
+      d.ports = ["1001:22"]  # Map container's SSH port 22 to host port 1001
+      d.remains_running = true
+    end
+
+    # SSH settings
+    node.vm.communicator = "ssh"
+    node.ssh.username = "root"  # Use 'root' as the SSH username (make sure your Docker setup allows root SSH login)
+    node.ssh.private_key_path = "ssh/vagrant_docker_key"  # Path to your private key
+    node.ssh.insert_key = false  # Do not insert the SSH key automatically into the container
+
+    # Optional: SSH timeout setting
+    node.vm.boot_timeout = 300
+  end
+end
