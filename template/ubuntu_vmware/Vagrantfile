@@ -19,15 +19,6 @@ Vagrant.configure("2") do |config|
     sudo apt-get install -y nvidia-cuda-toolkit
   SHELL
 
-  # Share CUDA libraries and devices from host
-  # config.vm.provider "vmware_desktop" do |v|
-  #   v.vmx["pciPassthru.use64bitMMIO"] = "TRUE"  # Enable 64-bit MMIO for CUDA
-  #   v.vmx["pciPassthru0.present"] = "TRUE"
-  #   v.vmx["pciPassthru0.deviceId"] = "PCI\VEN_10DE&DEV_25AC"
-  #   v.vmx["pciPassthru0.id"] = "0"
-  #   v.vmx["pciPassthru0.vendorId"] = "VEN_10DE"
-  # end
-
   # Network configuration
   config.vm.network "private_network", type: "dhcp"
 
