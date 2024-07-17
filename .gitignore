@@ -4,3 +4,6 @@
 # keys
 vagrant_docker_key
 vagrant_docker_key.pub
+
+# ignore workspace
+workspace/*

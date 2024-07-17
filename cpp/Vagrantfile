@@ -1,21 +1,14 @@
 Vagrant.configure("2") do |config|
-  config.vm.define "docker-cpp-core" do |node|
-    # Configure Docker provider
-    node.vm.provider "docker" do |d|
+  config.vm.define "docker-cpp-core" do |docker_cpp_core|
+    docker_cpp_core.vm.provider "docker" do |d|
       d.image = "cpp-core-latest"
-      d.has_ssh = true
-      d.privileged = true  # Optional: If your Docker setup requires privileged mode
-      d.ports = ["1002:22"]  # Map container's SSH port 22 to host port 1002
-      d.remains_running = true
+      d.cmd = ["/usr/sbin/sshd", "-D"]
+      d.volumes = ["workspace:/workspace"]
+      d.ports = ["1002:22"] # Only map port 22 to 1002
     end
 
-    # SSH settings
-    node.vm.communicator = "ssh"
-    node.ssh.username = "root"  # Use 'root' as the SSH username (make sure your Docker setup allows root SSH login)
-    node.ssh.private_key_path = "ssh/vagrant_docker_key"  # Path to your private key
-    node.ssh.insert_key = false  # Do not insert the SSH key automatically into the container
-
-    # Optional: SSH timeout setting
-    node.vm.boot_timeout = 300
+    docker_cpp_core.ssh.username = "root"
+    docker_cpp_core.ssh.private_key_path = ["ssh/vagrant_docker_key"]
+    docker_cpp_core.ssh.port = 1002 # Connect using port 1002
   end
 end
