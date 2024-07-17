@@ -1,11 +1,11 @@
-# Use the official Ubuntu image as the base image
+# Use the official GCC image as the base image
 FROM gcc:12.4.0
 
 LABEL MAINTAINER="Shajeen Ahamed <shajeenahmed@gmail.com>"
 
 # Install necessary packages: OpenSSH server, sudo, cmake, git, and additional C++ development tools
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
         openssh-server \
         sudo \
         cmake \
@@ -15,9 +15,10 @@ RUN apt-get update && \
         clang \
         llvm \
         valgrind \
-        python3-venv  # Install python3-venv package
+        python3-venv \
+        python3-pip && \
+    rm -rf /var/lib/apt/lists/*
 
-# Install Python 3 and pip (already included in many base images)
 # Create a virtual environment and install Conan
 RUN python3 -m venv /venv && \
     /venv/bin/pip install --upgrade pip && \

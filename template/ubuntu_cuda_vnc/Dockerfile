@@ -1,9 +1,20 @@
 FROM nvidia/cuda:12.3.1-devel-ubuntu22.04
 
-# Install OpenSSH server, sudo, and necessary libraries for GUI
+LABEL MAINTAINER="Shajeen Ahamed <shajeenahmed@gmail.com>"
+
+# Install necessary packages: OpenSSH server, sudo, cmake, git, and additional C++ development tools
 RUN apt-get update && \
-    apt-get install -y openssh-server sudo xfce4 xfce4-goodies tightvncserver xfce4-terminal && \
-    mkdir /var/run/sshd && \
+        apt-get install -y \
+        openssh-server \
+        sudo \
+        xfce4 \
+        xfce4-goodies \
+        tightvncserver \
+        xfce4-terminal && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set up SSH server with root login and password authentication
+RUN mkdir /var/run/sshd && \
     echo 'root:root' | chpasswd && \
     sed -i 's/PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
     echo 'UseDNS no' >> /etc/ssh/sshd_config && \
@@ -19,6 +30,10 @@ COPY ssh/vagrant_docker_key.pub /home/vagrant/.ssh/authorized_keys
 RUN chown -R vagrant:vagrant /home/vagrant/.ssh && \
     chmod 700 /home/vagrant/.ssh && \
     chmod 600 /home/vagrant/.ssh/authorized_keys
+
+# Create workspace directory
+RUN mkdir /workspace
+WORKDIR /workspace
 
 # Set up VNC server for user 'vagrant'
 RUN su - vagrant -c "mkdir -p ~/.vnc && echo 'vagrant' | vncpasswd -f > ~/.vnc/passwd && chmod 600 ~/.vnc/passwd"
