@@ -3,8 +3,10 @@ Vagrant.configure("2") do |config|
     docker_cpp_core.vm.provider "docker" do |d|
       d.image = "cpp-core-latest"
       d.cmd = ["/usr/sbin/sshd", "-D"]
-      d.volumes = ["workspace:/workspace"]
+      current_working_directory = Dir.pwd.gsub('\\', '/')
+      d.volumes = ["#{current_working_directory}:/workspace"]
       d.ports = ["1002:22"] # Only map port 22 to 1002
+      d.name = "docker-cpp"
     end
 
     docker_cpp_core.ssh.username = "root"

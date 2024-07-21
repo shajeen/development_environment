@@ -2,7 +2,8 @@ Vagrant.configure("2") do |config|
   config.vm.define "docker-ubuntu-cuda-vnc" do |docker_cpp_core|
     docker_cpp_core.vm.provider "docker" do |d|
       d.image = "ubuntu-cuda-vnc"
-      d.volumes = ["workspace:/workspace"]
+      current_working_directory = Dir.pwd.gsub('\\', '/')
+      d.volumes = ["#{current_working_directory}:/workspace"]
       d.ports = ["3000:22", "6000:5901"] 
       d.create_args = ["--gpus", "all"]
     end
