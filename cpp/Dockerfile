@@ -1,8 +1,9 @@
 # Use the official GCC image as the base image
-FROM gcc:12.4.0
+FROM gcc:latest AS builder
 
 LABEL MAINTAINER="Shajeen Ahamed <shajeenahmed@gmail.com>"
 
+FROM builder AS package-installer
 # Install necessary packages: OpenSSH server, sudo, cmake, git, and additional C++ development tools
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -19,11 +20,13 @@ RUN apt-get update && \
         python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
+FROM builder AS conan-setup
 # Create a virtual environment and install Conan
 RUN python3 -m venv /venv && \
     /venv/bin/pip install --upgrade pip && \
     /venv/bin/pip install conan
 
+FROM builder AS setup-ssh 
 # Set up SSH server with root login and password authentication
 RUN mkdir /var/run/sshd && \
     echo 'root:root' | chpasswd && \
@@ -42,6 +45,7 @@ RUN chown -R vagrant:vagrant /home/vagrant/.ssh && \
     chmod 700 /home/vagrant/.ssh && \
     chmod 600 /home/vagrant/.ssh/authorized_keys
 
+FROM builder AS final
 # Create workspace directory
 RUN mkdir /workspace
 WORKDIR /workspace
