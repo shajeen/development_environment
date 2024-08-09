@@ -1,8 +1,7 @@
-FROM nvidia/cuda:12.3.1-devel-ubuntu22.04 AS builder
+FROM nvidia/cuda:12.3.1-devel-ubuntu22.04 
 
 LABEL MAINTAINER="Shajeen Ahamed <shajeenahmed@gmail.com>"
 
-FROM builder AS package-installer
 # Install necessary packages: OpenSSH server, sudo, cmake, git, and additional C++ development tools
 RUN apt-get update && \
         apt-get install -y \
@@ -14,7 +13,6 @@ RUN apt-get update && \
         xfce4-terminal && \
     rm -rf /var/lib/apt/lists/*
 
-FROM builder AS setup-ssh 
 # Set up SSH server with root login and password authentication
 RUN mkdir /var/run/sshd && \
     echo 'root:root' | chpasswd && \
@@ -33,7 +31,6 @@ RUN chown -R vagrant:vagrant /home/vagrant/.ssh && \
     chmod 700 /home/vagrant/.ssh && \
     chmod 600 /home/vagrant/.ssh/authorized_keys
 
-FROM builder AS final
 # Create workspace directory
 RUN mkdir /workspace
 WORKDIR /workspace
