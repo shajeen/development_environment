@@ -3,10 +3,16 @@
       docker_cpp_core.vm.provider "docker" do |d|
         d.image = "ubuntu-cuda"
         d.cmd = ["/usr/sbin/sshd", "-D"]
-        current_working_directory = Dir.pwd.gsub('\\', '/')
-        d.volumes = ["#{current_working_directory}:/workspace"]
         d.ports = ["2000:22"] # Only map port 22 to 2000
         d.create_args = ["--gpus", "all"]
+
+      # Check if the platform is Windows
+      if Vagrant::Util::Platform.windows?
+        current_working_directory = Dir.pwd.gsub('\\', '/')
+        d.volumes = ["#{current_working_directory}:/workspace"]    
+      else
+        config.vm.synced_folder '.', '/vagrant', disabled: true
+      end          
       end
   
       docker_cpp_core.ssh.username = "root"
