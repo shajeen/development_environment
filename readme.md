@@ -21,8 +21,3 @@
    - ip: 127.0.0.1
    - port: 6000
    - gui: true # access through vnc
-
- - ubuntu_vmware
-   - user: vagrant
-   - password: vagrant
-   - gui: true # access through vmware 
