@@ -48,5 +48,13 @@ startxfce4 &' > /home/vagrant/.vnc/xstartup && \
 # Expose SSH and VNC ports
 EXPOSE 22 5901
 
-# Start SSH service and VNC server
-CMD service ssh start && su - vagrant -c "vncserver :1 -geometry 1280x800 -depth 24" && tail -f /dev/null
+# Start SSH service and VNC server with conflict handling
+CMD service ssh start && \
+    # Remove any existing X lock files
+    rm -f /tmp/.X1-lock /tmp/.X11-unix/X1 && \
+    # Check if a VNC server is already running and kill it if necessary
+    if pgrep -x "Xtightvnc" > /dev/null; then vncserver -kill :1; fi && \
+    # Start the VNC server on display :1
+    su - vagrant -c "vncserver :1 -geometry 1920x1080 -depth 24" && \
+    # Keep the container running
+    tail -f /dev/null
