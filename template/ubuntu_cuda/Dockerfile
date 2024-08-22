@@ -22,7 +22,7 @@ RUN useradd -ms /bin/bash vagrant && \
     usermod -aG sudo vagrant
 
 # Add the SSH public key to the vagrant user's authorized_keys
-COPY ssh/vagrant_docker_key.pub /home/vagrant/.ssh/authorized_keys
+COPY ssh/id_rsa.pub /home/vagrant/.ssh/authorized_keys
 RUN chown -R vagrant:vagrant /home/vagrant/.ssh && \
     chmod 700 /home/vagrant/.ssh && \
     chmod 600 /home/vagrant/.ssh/authorized_keys

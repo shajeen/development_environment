@@ -5,5 +5,9 @@
 vagrant_docker_key
 vagrant_docker_key.pub
 
+id_rsa
+id_rsa.pub
+
 # ignore workspace
 workspace/*
+
