@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  python_workspace:
+    container_name: python.workspace
+    image: python.workspace.image
+    build:
+      context: .
+      dockerfile: python.alpine.dockerfile
+    ports:
+      - "3002:22"
+    volumes:
+      - python.workspace.volume:/workspace
+    restart: unless-stopped
+    command: ["/usr/sbin/sshd", "-D"]
+    environment:
+      - GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=no
+    tty: true
+    stdin_open: true
+
+volumes:
+  python.workspace.volume:
