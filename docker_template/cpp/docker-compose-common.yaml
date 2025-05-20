@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   cpp_workspace:
-    container_name: cpp.workspace
+    container_name: cpp.workspace.common
     image: cpp.workspace.image
     build:
       context: .
@@ -10,7 +10,7 @@ services:
     ports:
       - "3001:22"
     volumes:
-      - cpp.workspace.volume:/workspace
+      - cpp.workspace.common.volume:/workspace
     restart: unless-stopped
     command: ["/usr/sbin/sshd", "-D"]
     environment:
@@ -19,4 +19,4 @@ services:
     stdin_open: true
 
 volumes:
-  cpp.workspace.volume:
+  cpp.workspace.common.volume:

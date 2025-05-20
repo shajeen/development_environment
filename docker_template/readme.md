@@ -12,3 +12,7 @@ docker run -it -p 3001:22 -v cpp.workspace.volume:/workspace --name cpp.workspac
 #### docker-compose
 docker build --no-cache
 docker up -d
+
+# port
+3000 - cpp
+4000 - python

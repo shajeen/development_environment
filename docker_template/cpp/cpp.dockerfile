@@ -38,19 +38,20 @@ RUN sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/
 # Create workspace and give dev user access
 RUN mkdir -p /workspace && chown -R dev:dev /workspace
 
-# Install Conan in a virtual environment
+# Install Conan in a virtual environment and configure profiles
 RUN python3 -m venv /venv && \
     /venv/bin/pip install --upgrade pip && \
-    /venv/bin/pip install conan
-
-# Build and install Google Test
-RUN cd /usr/src/gtest && \
-    cmake CMakeLists.txt && \
-    make && \
-    cp lib/*.a /usr/lib
+    /venv/bin/pip install conan cmake-conan && \
+    mkdir -p /home/dev/.conan && \
+    /venv/bin/conan profile new default --detect && \
+    /venv/bin/conan profile update settings.compiler.libcxx=libstdc++11 default
 
 # Expose SSH port
 EXPOSE 22
+
+# Set environment so that Conan and tools are in PATH
+ENV PATH="/venv/bin:$PATH" \
+    CONAN_USER_HOME="/home/dev/.conan"
 
 # Default command
 CMD ["/usr/sbin/sshd", "-D"]
