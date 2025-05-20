@@ -41,10 +41,9 @@ RUN mkdir -p /workspace && chown -R dev:dev /workspace
 # Install Conan in a virtual environment and configure profiles
 RUN python3 -m venv /venv && \
     /venv/bin/pip install --upgrade pip && \
-    /venv/bin/pip install conan cmake-conan && \
+    /venv/bin/pip install conan && \
     mkdir -p /home/dev/.conan && \
-    /venv/bin/conan profile new default --detect && \
-    /venv/bin/conan profile update settings.compiler.libcxx=libstdc++11 default
+    /venv/bin/conan profile detect --force
 
 # Expose SSH port
 EXPOSE 22
