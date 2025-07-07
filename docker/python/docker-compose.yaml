@@ -1,0 +1,35 @@
+version: "3.8"
+
+# Define the services (containers) that make up your application.
+services:
+  python_workspace:
+    # Assign a custom name to the container for easy identification.
+    container_name: python.workspace.common
+    # Specify the image name to be built and used for this service.
+    image: python.workspace.image
+    # Define the build context and Dockerfile for creating the image.
+    build:
+      context: ../..
+      dockerfile: docker/python/Dockerfile
+    # Map port 4001 on the host to port 22 (SSH) in the container.
+    ports:
+      - "4001:22"
+    # Mount a named volume to persist data in the /workspace directory inside the container.
+    volumes:
+      - python.workspace.common.volume:/workspace
+    # Ensure the container restarts automatically unless explicitly stopped.
+    restart: unless-stopped
+    # Override the default command defined in the Dockerfile to start the SSH daemon.
+    command: ["/usr/sbin/sshd", "-D"]
+    # Set environment variables within the container.
+    environment:
+      # Configure GIT_SSH_COMMAND to bypass strict host key checking for SSH connections.
+      - GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=no
+    # Allocate a pseudo-TTY, allowing for interactive shell sessions.
+    tty: true
+    # Keep stdin open, essential for interactive processes.
+    stdin_open: true
+
+# Define named volumes that can be used by services.
+volumes:
+  python.workspace.common.volume:

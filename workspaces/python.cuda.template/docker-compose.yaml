@@ -1,0 +1,47 @@
+version: "3.8"
+
+# Define the services (containers) that make up your application.
+services:
+  cpp_workspace:
+    # Assign a custom name to the container for easy identification.
+    container_name: python.cuda.workspace
+    # Specify the image name to be built and used for this service.
+    image: python.cuda.workspace.image
+    # Define the build context and Dockerfile for creating the image.
+    build:
+      context: ../../..
+      dockerfile: workspaces/python.cuda.template/Dockerfile
+    # Map port 3004 on the host to port 22 (SSH) and port 7860 on the host to port 7860 in the container.
+    ports:
+      - "3004:22"
+      - "7860:7860"
+    # Mount a named volume to persist data in the /workspace directory inside the container.
+    volumes:
+      - python_cuda_workspace_volume:/workspace
+    # Ensure the container restarts automatically unless explicitly stopped.
+    restart: unless-stopped
+    # Override the default command defined in the Dockerfile to start the SSH daemon.
+    command: ["/usr/sbin/sshd", "-D"]
+    # Set environment variables within the container.
+    environment:
+      # Configure GIT_SSH_COMMAND to bypass strict host key checking for SSH connections.
+      - GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=no
+    # Allocate a pseudo-TTY, allowing for interactive shell sessions.
+    tty: true
+    # Keep stdin open, essential for interactive processes.
+    stdin_open: true
+    # Configure deployment settings, specifically for NVIDIA GPU resources.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            # Specify the NVIDIA GPU driver.
+            - driver: nvidia
+              # Allocate all available GPUs to this service.
+              count: all
+              # Define the capabilities required, in this case, GPU access.
+              capabilities: [gpu]
+
+# Define named volumes that can be used by services.
+volumes:
+  python_cuda_workspace_volume:
