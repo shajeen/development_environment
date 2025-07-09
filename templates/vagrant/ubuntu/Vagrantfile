@@ -1,0 +1,21 @@
+Vagrant.configure("2") do |config|
+  config.vm.define "docker-ubuntu-core" do |docker_cpp_core|
+    docker_cpp_core.vm.provider "docker" do |d|
+      d.image = "ubuntu-core"
+      d.cmd = ["/usr/sbin/sshd", "-D"]
+      d.ports = ["1000:22"] # Only map port 22 to 1000
+      
+      # Check if the platform is Windows
+      if Vagrant::Util::Platform.windows?
+        current_working_directory = Dir.pwd.gsub('\\', '/')
+        d.volumes = ["#{current_working_directory}:/workspace"]    
+      else
+        config.vm.synced_folder '.', '/vagrant', disabled: true
+      end        
+    end
+
+    docker_cpp_core.ssh.username = "dev"
+    docker_cpp_core.ssh.password = "devpass"
+    docker_cpp_core.ssh.port = 1000 # Connect using port 1000
+  end
+end

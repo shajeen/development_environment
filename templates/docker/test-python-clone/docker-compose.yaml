@@ -1,0 +1,22 @@
+services:
+  python_workspace:
+    build:
+      context: ../..
+      dockerfile: docker/python/Dockerfile
+    command:
+    - /usr/sbin/sshd
+    - -D
+    container_name: test-python-clone.workspace
+    environment:
+    - GIT_SSH_COMMAND=ssh -o StrictHostKeyChecking=no
+    image: test-python-clone.workspace.image
+    ports:
+    - '9001:22'
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    volumes:
+    - test-python-clone_workspace_volume:/workspace
+version: '3.8'
+volumes:
+  test-python-clone_workspace_volume: {}

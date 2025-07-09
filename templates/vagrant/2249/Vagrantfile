@@ -1,0 +1,21 @@
+Vagrant.configure("2") do |config|
+  config.vm.define "docker-2249" do |docker_cpp_core|
+    docker_cpp_core.vm.provider "docker" do |d|
+      d.image = "2249-image"
+      d.cmd = ["/usr/sbin/sshd", "-D"]
+      d.ports = ["4002:22"] # Only map port 22 to 4002
+
+      # Check if the platform is Windows
+      if Vagrant::Util::Platform.windows?
+        current_working_directory = Dir.pwd.gsub('\\', '/')
+        d.volumes = ["#{current_working_directory}:/workspace"]    
+      else
+        config.vm.synced_folder '.', '/vagrant', disabled: true
+      end        
+    end
+
+    docker_cpp_core.ssh.username = "dev"
+    docker_cpp_core.ssh.password = "devpass"
+    docker_cpp_core.ssh.port = 4002 # Connect using port 4002
+  end
+end
