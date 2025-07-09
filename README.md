@@ -18,20 +18,13 @@ To get started with setting up your development environment, please refer to the
 
 ### Starting the Application
 
-After initial setup, activate your Python virtual environment and then start the DevEnvOps application:
+After initial setup, activate your Python virtual environment and then start the DevEnvOps web application:
 
-#### Web Application (Recommended)
 ```bash
 source venv/bin/activate
 ./start_web.py
 ```
 Then open your browser to `http://localhost:5000`
-
-#### GUI Application (Legacy)
-```bash
-source venv/bin/activate
-./start_gui.py
-```
 
 ## Environments Available
 

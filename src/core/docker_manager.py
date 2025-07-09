@@ -84,65 +84,6 @@ class DockerEnvironmentManager:
                 "description": "Python + CUDA development with web interface support",
                 "gpu_support": True,
                 "web_port": 7860
-            },
-            # Vagrant environments
-            "vagrant-ubuntu": {
-                "name": "Ubuntu Core VM (Vagrant)",
-                "path": "vagrant/ubuntu",
-                "port": 1000,
-                "container": "docker-ubuntu-core",
-                "image": "ubuntu-core",
-                "volume": "workspace:/workspace",
-                "type": "vagrant",
-                "ssh_user": "dev",
-                "description": "Basic Ubuntu development environment with cross-platform volume mounting"
-            },
-            "vagrant-ubuntu-cuda": {
-                "name": "Ubuntu CUDA VM (Vagrant)",
-                "path": "vagrant/ubuntu_cuda",
-                "port": 2000,
-                "container": "docker-ubuntu-cuda",
-                "image": "ubuntu-cuda",
-                "volume": "workspace:/workspace",
-                "type": "vagrant",
-                "ssh_user": "dev",
-                "description": "Ubuntu with NVIDIA GPU support for CUDA development",
-                "gpu_support": True
-            },
-            "vagrant-ubuntu-cuda-vnc": {
-                "name": "Ubuntu CUDA VNC VM (Vagrant)",
-                "path": "vagrant/ubuntu_cuda_vnc",
-                "port": 3000,
-                "container": "docker-ubuntu-cuda-vnc",
-                "image": "ubuntu-cuda-vnc",
-                "volume": "workspace:/workspace",
-                "type": "vagrant",
-                "ssh_user": "dev",
-                "vnc_port": 6000,
-                "description": "Ubuntu with NVIDIA GPU support and VNC remote desktop access",
-                "gpu_support": True
-            },
-            "vagrant-cpp": {
-                "name": "C++ Development VM (Vagrant)",
-                "path": "vagrant/cpp",
-                "port": 1002,
-                "container": "docker-cpp",
-                "image": "cpp_core_latest",
-                "volume": "workspace:/workspace",
-                "type": "vagrant",
-                "ssh_user": "dev",
-                "description": "C++ development environment with build tools and cross-platform support"
-            },
-            "vagrant-python": {
-                "name": "Python Development VM (Vagrant)",
-                "path": "vagrant/python",
-                "port": 1001,
-                "container": "docker-python-core",
-                "image": "python-core-latest",
-                "volume": "workspace:/workspace",
-                "type": "vagrant",
-                "ssh_user": "dev",
-                "description": "Python development environment with essential packages and cross-platform support"
             }
         }
         self.save_environments()
@@ -191,14 +132,8 @@ class DockerEnvironmentManager:
     
     def get_container_status(self, container_name: str, env_type: str = "docker-compose", env_path: str = None) -> str:
         """Get the comprehensive status of a container or Vagrant environment"""
-        if env_type == "vagrant" and env_path:
-            # Check if vagrant path exists
-            if not os.path.exists(env_path):
-                return "path not found"
-            return self.get_vagrant_status(env_path)
-        else:
-            # Docker container - check comprehensive status
-            return self.get_docker_environment_status(container_name)
+        # Docker container - check comprehensive status
+        return self.get_docker_environment_status(container_name)
     
     def get_docker_environment_status(self, container_name: str) -> str:
         """Get comprehensive Docker environment status"""
@@ -362,46 +297,7 @@ class DockerEnvironmentManager:
         
         return True
     
-    def get_vagrant_status(self, env_path: str) -> str:
-        """Get the status of a Vagrant environment"""
-        try:
-            # First try simple vagrant status
-            returncode, stdout, stderr = self.run_command([
-                "vagrant", "status"
-            ], cwd=str(env_path))
-            
-            if returncode == 0:
-                # Parse simple output - look for running/stopped indicators
-                if "running" in stdout.lower():
-                    return "running"
-                elif "stopped" in stdout.lower() or "poweroff" in stdout.lower():
-                    return "stopped"
-                elif "not created" in stdout.lower():
-                    return "not created"
-                else:
-                    return "unknown"
-            else:
-                # If vagrant command fails, try machine-readable format
-                returncode, stdout, stderr = self.run_command([
-                    "vagrant", "status", "--machine-readable"
-                ], cwd=str(env_path))
-                
-                if returncode == 0:
-                    # Parse machine-readable output
-                    for line in stdout.split('\n'):
-                        if ',state,' in line:
-                            parts = line.split(',')
-                            if len(parts) > 3:
-                                state = parts[3]
-                                if state == "running":
-                                    return "running"
-                                elif state in ["stopped", "poweroff", "aborted"]:
-                                    return "stopped"
-                                else:
-                                    return state
-                return "not found"
-        except Exception as e:
-            return "error"
+    
     
     def build_environment(self, env_key: str, no_cache: bool = False) -> bool:
         """Build a Docker or Vagrant environment"""
@@ -414,31 +310,14 @@ class DockerEnvironmentManager:
         if not env_path.exists():
             return False
         
-        if env.get("type") == "vagrant":
-            # For Vagrant environments, build the Docker image first
-            if not env_path.exists():
-                return False
-            
-            dockerfile_path = env_path / "Dockerfile"
-            if dockerfile_path.exists():
-                cmd = ["docker", "build", "-t", env["image"], "."]
-                if no_cache:
-                    cmd.append("--no-cache")
-                
-                returncode, stdout, stderr = self.run_command(cmd, cwd=str(env_path))
-                return returncode == 0
-            else:
-                # No Dockerfile found, but that's OK for some Vagrant environments
-                return True
-        else:
-            # Docker Compose environments
-            cmd = ["docker-compose", "build"]
-            if no_cache:
-                cmd.append("--no-cache")
-            
-            returncode, stdout, stderr = self.run_command(cmd, cwd=str(env_path))
-            
-            return returncode == 0
+        # Docker Compose environments
+        cmd = ["docker-compose", "build"]
+        if no_cache:
+            cmd.append("--no-cache")
+        
+        returncode, stdout, stderr = self.run_command(cmd, cwd=str(env_path))
+        
+        return returncode == 0
     
     def start_environment(self, env_key: str) -> bool:
         """Start a Docker or Vagrant environment"""
@@ -448,28 +327,12 @@ class DockerEnvironmentManager:
         env = self.environments[env_key]
         env_path = self.base_path / "templates" / env["path"]
         
-        if env.get("type") == "vagrant":
-            # For Vagrant environments
-            if not env_path.exists():
-                return False
-            
-            # Check if Vagrantfile exists
-            vagrantfile_path = env_path / "Vagrantfile"
-            if not vagrantfile_path.exists():
-                return False
-            
-            returncode, stdout, stderr = self.run_command([
-                "vagrant", "up"
-            ], cwd=str(env_path))
-            
-            return returncode == 0
-        else:
-            # Docker Compose environments
-            returncode, stdout, stderr = self.run_command([
-                "docker-compose", "up", "-d"
-            ], cwd=str(env_path))
-            
-            return returncode == 0
+        # Docker Compose environments
+        returncode, stdout, stderr = self.run_command([
+            "docker-compose", "up", "-d"
+        ], cwd=str(env_path))
+        
+        return returncode == 0
     
     def stop_environment(self, env_key: str) -> bool:
         """Stop a Docker or Vagrant environment"""
@@ -479,23 +342,12 @@ class DockerEnvironmentManager:
         env = self.environments[env_key]
         env_path = self.base_path / "templates" / env["path"]
         
-        if env.get("type") == "vagrant":
-            # For Vagrant environments
-            if not env_path.exists():
-                return False
-            
-            returncode, stdout, stderr = self.run_command([
-                "vagrant", "halt"
-            ], cwd=str(env_path))
-            
-            return returncode == 0
-        else:
-            # Docker Compose environments
-            returncode, stdout, stderr = self.run_command([
-                "docker-compose", "down"
-            ], cwd=str(env_path))
-            
-            return returncode == 0
+        # Docker Compose environments
+        returncode, stdout, stderr = self.run_command([
+            "docker-compose", "down"
+        ], cwd=str(env_path))
+        
+        return returncode == 0
     
     def clear_environment(self, env_key: str, remove_volumes: bool = False) -> bool:
         """Clear/remove a Docker or Vagrant environment"""
@@ -505,42 +357,24 @@ class DockerEnvironmentManager:
         env = self.environments[env_key]
         env_path = self.base_path / "templates" / env["path"]
         
-        if env.get("type") == "vagrant":
-            # For Vagrant environments
-            if not env_path.exists():
-                return True  # If path doesn't exist, consider it cleared
-            
-            returncode, stdout, stderr = self.run_command([
-                "vagrant", "destroy", "-f"
-            ], cwd=str(env_path))
-            
-            # Remove the Docker image
-            returncode, stdout, stderr = self.run_command([
-                "docker", "rmi", env["image"]
-            ])
-            if returncode != 0:
-                logger.error(f"Failed to remove Docker image {env["image"]}: {stderr}")
-            
-            return True
-        else:
-            # Docker Compose environments
-            # Stop and remove containers
-            cmd = ["docker-compose", "down"]
-            if remove_volumes:
-                cmd.append("--volumes")
-            
-            returncode, stdout, stderr = self.run_command(cmd, cwd=str(env_path))
-            if returncode != 0:
-                logger.error(f"Failed to stop and remove Docker Compose environment at {env_path}: {stderr}")
-            
-            # Remove images
-            returncode, stdout, stderr = self.run_command([
-                "docker", "rmi", env["image"]
-            ])
-            if returncode != 0:
-                logger.error(f"Failed to remove Docker image {env["image"]}: {stderr}")
-            
-            return True
+        # Docker Compose environments
+        # Stop and remove containers
+        cmd = ["docker-compose", "down"]
+        if remove_volumes:
+            cmd.append("--volumes")
+        
+        returncode, stdout, stderr = self.run_command(cmd, cwd=str(env_path))
+        if returncode != 0:
+            logger.error(f"Failed to stop and remove Docker Compose environment at {env_path}: {stderr}")
+        
+        # Remove images
+        returncode, stdout, stderr = self.run_command([
+            "docker", "rmi", env["image"]
+        ])
+        if returncode != 0:
+            logger.error(f"Failed to remove Docker image {env["image"]}: {stderr}")
+        
+        return True
     
     def restart_environment(self, env_key: str) -> bool:
         """Restart a Docker environment"""
@@ -577,7 +411,7 @@ class DockerEnvironmentManager:
         
         # Path validation - GUI will handle path validation
         if field == "path":
-            path_obj = self.base_path / value
+            path_obj = self.base_path / "templates" / value
             if not path_obj.exists():
                 return False
         
@@ -612,16 +446,10 @@ class DockerEnvironmentManager:
         # Handle environment type-specific configuration
         env_type = source_config.get("type", "docker-compose")
         
-        if env_type == "vagrant":
-            # For Vagrant environments
-            source_config["container"] = f"docker-{new_env}"
-            source_config["image"] = f"{new_env}-image"
-            source_config["volume"] = "workspace:/workspace"
-        else:
-            # For Docker Compose environments
-            source_config["container"] = f"{new_env}.workspace"
-            source_config["image"] = f"{new_env}.workspace.image"
-            source_config["volume"] = f"{new_env}_workspace_volume:/workspace"
+        # For Docker Compose environments
+        source_config["container"] = f"{new_env}.workspace"
+        source_config["image"] = f"{new_env}.workspace.image"
+        source_config["volume"] = f"{new_env}_workspace_volume:/workspace"
         
         # Create new path - fix the path calculation
         source_path = Path(source_config["path"])
@@ -642,10 +470,7 @@ class DockerEnvironmentManager:
                 shutil.copytree(source_full_path, new_full_path)
                 
                 # Update configuration files based on environment type
-                if env_type == "docker-compose":
-                    self.update_docker_compose(new_full_path, source_config)
-                elif env_type == "vagrant":
-                    self.update_vagrantfile(new_full_path, source_config)
+                self.update_docker_compose(new_full_path, source_config)
             else:
                 # If source directory doesn't exist, still create the configuration
                 # This allows cloning of environments that don't have physical directories
@@ -698,58 +523,6 @@ class DockerEnvironmentManager:
         except Exception as e:
             logger.error(f"Error updating docker-compose.yaml at {compose_file}: {e}")
     
-    def update_vagrantfile(self, env_path: Path, config: dict):
-        """Update Vagrantfile with new configuration"""
-        vagrantfile = env_path / "Vagrantfile"
-        if not vagrantfile.exists():
-            return
-        
-        try:
-            with open(vagrantfile, 'r') as f:
-                content = f.read()
-            
-            # Update the configuration in the Vagrantfile
-            # This is a comprehensive text replacement approach
-            
-            # Extract the container name for vm.define
-            container_name = config["container"]
-            vm_define_name = container_name
-            
-            # Update vm.define name (more robust pattern)
-            old_define_pattern = r'config\\.vm\\.define\\s+"[^"]*"'
-            new_define = f'config.vm.define "{vm_define_name}"'
-            content = re.sub(old_define_pattern, new_define, content)
-            
-            # Update image name
-            old_image_pattern = r'd\\.image\\s*=\\s*"[^"]*"'
-            new_image = f'd.image = "{config["image"]}"'
-            content = re.sub(old_image_pattern, new_image, content)
-            
-            # Update ports - more flexible pattern
-            old_port_pattern = r'd\\.ports\\s*=\\s*\["[^"]*"\]'
-            new_ports = f'd.ports = ["{config["port"]}:22"]'
-            content = re.sub(old_port_pattern, new_ports, content)
-            
-            # Update SSH port
-            old_ssh_port_pattern = r'ssh\\.port\\s*=\\s*\\d+'
-            new_ssh_port = f'ssh.port = {config["port"]}'
-            content = re.sub(old_ssh_port_pattern, new_ssh_port, content)
-            
-            # Update port in comments if they exist
-            old_comment_pattern = r'# Only map port 22 to \\d+'
-            new_comment = f'# Only map port 22 to {config["port"]}'
-            content = re.sub(old_comment_pattern, new_comment, content)
-            
-            # Update connection port in comments
-            old_connect_comment_pattern = r'# Connect using port \\d+'
-            new_connect_comment = f'# Connect using port {config["port"]}'
-            content = re.sub(old_connect_comment_pattern, new_connect_comment, content)
-            
-            # Write updated Vagrantfile
-            with open(vagrantfile, 'w') as f:
-                f.write(content)
-                
-        except Exception as e:
-            logger.error(f"Error updating Vagrantfile at {vagrantfile}: {e}")
     
-    # Console-specific methods removed - GUI only backend
+    
+    
