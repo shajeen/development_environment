@@ -1,0 +1,3 @@
+Todo:
+- I can see output '[DEBUG] OUTPUT:' good, can you forwared this in web console too.
+- 
