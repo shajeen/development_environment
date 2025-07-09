@@ -1,6 +1,6 @@
 # Getting Started with DevEnvOps
 
-This guide provides detailed instructions on how to set up and use DevEnvOps, your development environment orchestrator. DevEnvOps allows you to manage various development environments using Docker and Vagrant through an intuitive Graphical User Interface (GUI) or via command-line operations.
+This guide provides detailed instructions on how to set up and use DevEnvOps, your development environment orchestrator. DevEnvOps allows you to manage various development environments using Docker and Vagrant through an intuitive Graphical User Interface (GUI).
 
 ## Prerequisites
 
@@ -86,57 +86,7 @@ The GUI features:
     *   Select an environment.
     *   Click the "ℹ️ Info" button. A dialog will appear showing detailed information about the associated Docker container and image.
 
-## 3. Advanced Usage (Command Line)
 
-For users who prefer command-line operations or for scripting purposes, you can directly interact with Docker and Vagrant.
-
-### Docker Environments (Manual Operations)
-
-Navigate to the specific Docker environment directory within the `templates/docker/` folder:
-
-```bash
-cd templates/docker/<environment_name>
-# e.g., cd templates/docker/cpp
-# e.g., cd templates/docker/cuda
-# e.g., cd templates/docker/python
-```
-
-*   **Build and Run:**
-    ```bash
-    docker-compose up --build -d
-    ```
-*   **SSH Access:**
-    ```bash
-    ssh dev@localhost -p <port_number>
-    # e.g., ssh dev@localhost -p 3001
-    ```
-*   **Stop:**
-    ```bash
-    docker-compose down
-    ```
-
-### Vagrant Environments (Manual Operations)
-
-Navigate to the specific Vagrant environment directory within the `templates/vagrant/` folder:
-
-```bash
-cd templates/vagrant/<environment_name>
-# e.g., cd templates/vagrant/ubuntu
-# e.g., cd templates/vagrant/cpp
-```
-
-*   **Start:**
-    ```bash
-    vagrant up
-    ```
-*   **SSH Access:**
-    ```bash
-    vagrant ssh
-    ```
-*   **Stop and Destroy:**
-    ```bash
-    vagrant destroy
-    ```
 
 ## 4. Environment Templates
 

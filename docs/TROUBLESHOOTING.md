@@ -10,21 +10,8 @@
 
 **Solution:**
 1. **Check current configurations:**
-   ```bash
-   source venv/bin/activate
-   python docker_manager.py list
-   ```
 
-2. **Fix the path using edit command:**
-   ```bash
-   python docker_manager.py edit <env_key> --field path --value <correct_path>
-   ```
 
-3. **Example fix:**
-   ```bash
-   # If cpp environment points to wrong path
-   python docker_manager.py edit cpp --field path --value "docker/cpp"
-   ```
 
 4. **Verify available paths:**
    ```bash
@@ -39,21 +26,7 @@
 3. **Port Conflict Detection:** Prevents duplicate port assignments
 4. **GUI Validation:** Edit dialogs validate paths and ports before saving
 
-### 🔧 Validation Commands
 
-```bash
-# Test all configurations
-python test_gui.py
-
-# List all environments and their status
-python docker_manager.py list
-
-# Check specific environment info
-python docker_manager.py info <env_key>
-
-# List all editable fields
-python docker_manager.py fields
-```
 
 ### 🐳 Docker Issues
 
@@ -88,7 +61,6 @@ If configurations get corrupted:
 2. **Reset to defaults:**
    ```bash
    rm docker_environments.json
-   python docker_manager.py list  # Recreates defaults
    ```
 
 3. **Or manually fix the JSON file:**
@@ -120,18 +92,3 @@ development_environment/
 └── docker_environments.json
 ```
 
-### 🛠️ Maintenance Commands
-
-```bash
-# Update environment name
-python docker_manager.py edit cpp --field name --value "My C++ Environment"
-
-# Update environment port
-python docker_manager.py edit cpp --field port --value 3005
-
-# Interactive editing
-python docker_manager.py interactive-edit cpp
-
-# Clone environment
-python docker_manager.py clone my_env --source cpp --new-name "My Environment"
-```
