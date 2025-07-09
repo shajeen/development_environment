@@ -18,9 +18,10 @@ To get started with setting up your development environment, please refer to the
 
 ### Starting the GUI
 
-After initial setup, you can start the DevEnvOps GUI using the `start_gui.py` script:
+After initial setup, activate your Python virtual environment and then start the DevEnvOps GUI using the `start_gui.py` script:
 
 ```bash
+source venv/bin/activate
 ./start_gui.py
 ```
 
