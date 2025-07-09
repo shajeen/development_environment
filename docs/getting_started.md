@@ -33,11 +33,10 @@ The DevEnvOps GUI provides a user-friendly interface for managing your developme
 
 ### Starting the GUI
 
-After running `setup.sh`, activate the virtual environment and start the GUI:
+After running `setup.sh`, you can start the DevEnvOps GUI using the `start_gui.py` script:
 
 ```bash
-source venv/bin/activate
-python src/gui/docker_manager_gui.py
+./start_gui.py
 ```
 
 ### GUI Overview

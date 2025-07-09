@@ -14,7 +14,15 @@ DevEnvOps provides a streamlined approach to managing and orchestrating various 
 
 To get started with setting up your development environment, please refer to the detailed initialization guide:
 
-[How to Initialize Your Development Environment](docs/howto_init.md)
+[Getting Started Guide](docs/getting_started.md)
+
+### Starting the GUI
+
+After initial setup, you can start the DevEnvOps GUI using the `start_gui.py` script:
+
+```bash
+./start_gui.py
+```
 
 ## Environments Available
 
