@@ -20,15 +20,15 @@ def start_gui():
     print(f"Command: {command}")
 
     try:
-        # Execute the command. shell=True is needed for 'source'
-        # We don't want to capture output here, let it go to the console
-        subprocess.run(command, shell=True, check=True)
+        # Execute the command using bash -c
+        # shell=False by default when passing a list, so bash will interpret the command string
+        subprocess.run(["bash", "-c", command], check=True)
     except subprocess.CalledProcessError as e:
         print(f"Error starting GUI: {e}")
         print(f"Stdout: {e.stdout}")
         print(f"Stderr: {e.stderr}")
     except FileNotFoundError:
-        print(f"Error: Python or the GUI script was not found. Ensure Python is in your PATH and the script path is correct.")
+        print(f"Error: bash was not found. Ensure bash is in your PATH.")
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
