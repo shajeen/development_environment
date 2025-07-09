@@ -4,7 +4,7 @@ Welcome to the DevEnvOps documentation! This guide provides comprehensive inform
 
 ## Table of Contents
 
-*   [Getting Started](howto_init.md)
+*   [Getting Started](getting_started.md)
 *   [Clone Guide](CLONE_GUIDE.md)
 *   [Docker Manager Readme](README_DOCKER_MANAGER.md)
 *   [Troubleshooting](TROUBLESHOOTING.md)
