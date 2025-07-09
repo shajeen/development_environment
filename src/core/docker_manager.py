@@ -752,4 +752,4 @@ class DockerEnvironmentManager:
         except Exception as e:
             logger.error(f"Error updating Vagrantfile at {vagrantfile}: {e}")
     
-    # Console-specific methods removed - GUI only backend
+    
