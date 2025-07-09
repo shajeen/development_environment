@@ -3,6 +3,11 @@
 import subprocess
 import os
 import sys
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='[%(asctime)s] %(levelname)s: %(message)s')
+logger = logging.getLogger(__name__)
 
 def start_gui():
     # Determine the path to the GUI script
@@ -15,20 +20,20 @@ def start_gui():
     # The user is expected to activate the virtual environment manually before running this script.
     command = f"export PYTHONPATH=$PYTHONPATH:{project_root} && python3 {gui_script}"
 
-    print(f"Starting DevEnvOps GUI...")
-    print(f"Command: {command}")
+    logger.info(f"Starting DevEnvOps GUI...")
+    logger.info(f"Command: {command}")
 
     try:
         # Execute the command using bash -c
         subprocess.run(["bash", "-c", command], check=True)
     except subprocess.CalledProcessError as e:
-        print(f"Error starting GUI: {e}")
-        print(f"Stdout: {e.stdout}")
-        print(f"Stderr: {e.stderr}")
+        logger.error(f"Error starting GUI: {e}")
+        logger.error(f"Stdout: {e.stdout}")
+        logger.error(f"Stderr: {e.stderr}")
     except FileNotFoundError:
-        print(f"Error: bash or python3 was not found. Ensure they are in your PATH.")
+        logger.error(f"Error: bash or python3 was not found. Ensure they are in your PATH.")
     except Exception as e:
-        print(f"An unexpected error occurred: {e}")
+        logger.exception(f"An unexpected error occurred")
 
 if __name__ == "__main__":
     start_gui()

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DevEnvOps - Development Environment Orchestrator{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .status-running {
+            color: #28a745;
+        }
+        .status-stopped {
+            color: #dc3545;
+        }
+        .status-built {
+            color: #17a2b8;
+        }
+        .status-template-ready {
+            color: #6c757d;
+        }
+        .status-unknown {
+            color: #fd7e14;
+        }
+        .environment-card {
+            transition: transform 0.2s;
+        }
+        .environment-card:hover {
+            transform: translateY(-2px);
+        }
+        .output-area {
+            background-color: #212529;
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+            height: 300px;
+            overflow-y: auto;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .output-stdout {
+            color: #ffffff;
+        }
+        .output-stderr {
+            color: #ffc107;
+        }
+        .output-command {
+            color: #17a2b8;
+            font-weight: bold;
+        }
+        .output-success {
+            color: #28a745;
+        }
+        .output-error {
+            color: #dc3545;
+        }
+        .btn-action {
+            margin: 2px;
+        }
+        .btn-loading {
+            position: relative;
+            pointer-events: none;
+        }
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            top: 50%;
+            left: 50%;
+            margin-left: -8px;
+            margin-top: -8px;
+            border: 2px solid transparent;
+            border-top-color: #ffffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .progress-enhanced {
+            height: 25px;
+            border-radius: 10px;
+        }
+        .progress-bar-enhanced {
+            line-height: 25px;
+            font-size: 12px;
+        }
+        .env-info {
+            font-size: 0.9em;
+        }
+        .selected {
+            border: 2px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-docker"></i> DevEnvOps
+            </a>
+            <span class="navbar-text">
+                Development Environment Orchestrator
+            </span>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

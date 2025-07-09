@@ -1,0 +1,752 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-list"></i> Development Environments</h5>
+            </div>
+            <div class="card-body">
+                <div class="row" id="environments-container">
+                    <!-- Environment cards will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle"></i> Environment Information</h5>
+            </div>
+            <div class="card-body">
+                <div id="env-info" class="env-info">
+                    <p class="text-muted">Select an environment to view details</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5><i class="fas fa-cogs"></i> Actions</h5>
+            </div>
+            <div class="card-body">
+                <div id="action-buttons" class="d-grid gap-2">
+                    <button class="btn btn-primary btn-action" onclick="buildEnvironment()" disabled>
+                        <i class="fas fa-hammer"></i> Build
+                    </button>
+                    <button class="btn btn-success btn-action" onclick="startEnvironment()" disabled>
+                        <i class="fas fa-play"></i> Start
+                    </button>
+                    <button class="btn btn-danger btn-action" onclick="stopEnvironment()" disabled>
+                        <i class="fas fa-stop"></i> Stop
+                    </button>
+                    <button class="btn btn-warning btn-action" onclick="restartEnvironment()" disabled>
+                        <i class="fas fa-redo"></i> Restart
+                    </button>
+                    <button class="btn btn-secondary btn-action" onclick="clearEnvironment()" disabled>
+                        <i class="fas fa-broom"></i> Clear
+                    </button>
+                    <button class="btn btn-info btn-action" onclick="showContainerInfo()" disabled>
+                        <i class="fas fa-info"></i> Info
+                    </button>
+                    <button class="btn btn-outline-primary btn-action" onclick="editEnvironment()" disabled>
+                        <i class="fas fa-edit"></i> Edit
+                    </button>
+                    <button class="btn btn-outline-success btn-action" onclick="cloneEnvironment()" disabled>
+                        <i class="fas fa-clone"></i> Clone
+                    </button>
+                    <button class="btn btn-outline-danger btn-action" onclick="deleteEnvironment()" disabled>
+                        <i class="fas fa-trash"></i> Delete
+                    </button>
+                </div>
+                
+                <div class="mt-3">
+                    <h6>Options</h6>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="no-cache">
+                        <label class="form-check-label" for="no-cache">
+                            No Cache (Build)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="remove-volumes">
+                        <label class="form-check-label" for="remove-volumes">
+                            Remove Volumes (Clear)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="remove-images">
+                        <label class="form-check-label" for="remove-images">
+                            Remove Images (Delete)
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="delete-volumes">
+                        <label class="form-check-label" for="delete-volumes">
+                            Remove Volumes (Delete)
+                        </label>
+                    </div>
+                </div>
+                
+                <button class="btn btn-outline-secondary btn-sm mt-2" onclick="refreshEnvironments()">
+                    <i class="fas fa-sync"></i> Refresh Status
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-terminal"></i> Output</h5>
+                <button class="btn btn-sm btn-outline-secondary" onclick="clearOutput()">
+                    <i class="fas fa-eraser"></i> Clear
+                </button>
+            </div>
+            <div class="card-body">
+                <!-- Progress Bar -->
+                <div id="progress-container" class="mb-3" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span id="progress-label" class="text-muted">Processing...</span>
+                        <span id="progress-status" class="badge bg-primary">In Progress</span>
+                    </div>
+                    <div class="progress">
+                        <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+                
+                <!-- Activity Indicator -->
+                <div id="activity-indicator" class="text-center mb-3" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 text-muted" id="activity-message">Operation in progress...</p>
+                </div>
+                
+                <div id="output" class="output-area"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Environment Modal -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Environment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm">
+                    <div class="mb-3">
+                        <label for="edit-name" class="form-label">Display Name</label>
+                        <input type="text" class="form-control" id="edit-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-path" class="form-label">Directory Path</label>
+                        <input type="text" class="form-control" id="edit-path" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-port" class="form-label">SSH Port</label>
+                        <input type="number" class="form-control" id="edit-port" min="1" max="65535" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-container" class="form-label">Container Name</label>
+                        <input type="text" class="form-control" id="edit-container" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-image" class="form-label">Image Name</label>
+                        <input type="text" class="form-control" id="edit-image" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-volume" class="form-label">Volume Name</label>
+                        <input type="text" class="form-control" id="edit-volume">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="saveEnvironment()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Clone Environment Modal -->
+<div class="modal fade" id="cloneModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Clone Environment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h6>Source Environment</h6>
+                    <p id="clone-source-info" class="text-muted"></p>
+                </div>
+                <form id="cloneForm">
+                    <div class="mb-3">
+                        <label for="clone-key" class="form-label">Unique Identifier</label>
+                        <input type="text" class="form-control" id="clone-key" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="clone-name" class="form-label">Display Name</label>
+                        <input type="text" class="form-control" id="clone-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="clone-port" class="form-label">SSH Port</label>
+                        <input type="number" class="form-control" id="clone-port" min="1" max="65535" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" onclick="performClone()">Clone Environment</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Container Info Modal -->
+<div class="modal fade" id="infoModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Container & Image Information</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-box"></i> Container Information</h6>
+                        <div id="container-info">
+                            <p>Loading...</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-image"></i> Image Information</h6>
+                        <div id="image-info">
+                            <p>Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="loadContainerInfo()">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const socket = io();
+    let selectedEnv = null;
+    let environments = [];
+
+    // Socket event handlers
+    socket.on('output', function(data) {
+        console.log('Received output:', data.message);
+        appendOutput(data.message);
+    });
+
+    socket.on('refresh_status', function() {
+        loadEnvironments();
+    });
+
+    socket.on('refresh_environments', function() {
+        loadEnvironments();
+        selectedEnv = null;
+        updateUI();
+        
+        // Hide progress indicators when environments refresh
+        hideProgressBar();
+        hideActivityIndicator();
+        setAllButtonsLoading(false);
+    });
+
+    // Load environments on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadEnvironments();
+        
+        // Auto-refresh every 10 seconds
+        setInterval(loadEnvironments, 10000);
+    });
+
+    function loadEnvironments() {
+        fetch('/api/environments')
+            .then(response => response.json())
+            .then(data => {
+                environments = data;
+                displayEnvironments();
+                if (selectedEnv) {
+                    updateEnvironmentInfo(selectedEnv);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading environments:', error);
+                appendOutput('Error loading environments: ' + error.message);
+            });
+    }
+
+    function displayEnvironments() {
+        const container = document.getElementById('environments-container');
+        container.innerHTML = '';
+
+        const dockerEnvs = environments.filter(env => env.type !== 'vagrant');
+        const vagrantEnvs = environments.filter(env => env.type === 'vagrant');
+
+        if (dockerEnvs.length > 0) {
+            container.innerHTML += '<div class="col-12"><h6><i class="fas fa-docker"></i> Docker Compose Environments</h6></div>';
+            dockerEnvs.forEach(env => {
+                container.appendChild(createEnvironmentCard(env));
+            });
+        }
+
+        if (vagrantEnvs.length > 0) {
+            container.innerHTML += '<div class="col-12 mt-3"><h6><i class="fas fa-map"></i> Vagrant Environments</h6></div>';
+            vagrantEnvs.forEach(env => {
+                container.appendChild(createEnvironmentCard(env));
+            });
+        }
+    }
+
+    function createEnvironmentCard(env) {
+        const col = document.createElement('div');
+        col.className = 'col-md-6 mb-3';
+        
+        const statusClass = env.status === 'running' ? 'status-running' : 
+                           env.status === 'stopped' ? 'status-stopped' : 
+                           env.status === 'built' ? 'status-built' :
+                           env.status === 'template-ready' ? 'status-template-ready' : 'status-unknown';
+        
+        const statusIcon = env.status === 'running' ? 'fas fa-play-circle' : 
+                          env.status === 'stopped' ? 'fas fa-stop-circle' : 
+                          env.status === 'built' ? 'fas fa-check-circle' :
+                          env.status === 'template-ready' ? 'fas fa-file-code' : 'fas fa-question-circle';
+        
+        col.innerHTML = `
+            <div class="card environment-card ${selectedEnv === env.key ? 'selected' : ''}" 
+                 onclick="selectEnvironment('${env.key}')" style="cursor: pointer;">
+                <div class="card-body">
+                    <h6 class="card-title">${env.name}</h6>
+                    <p class="card-text">
+                        <small class="text-muted">${env.key}</small><br>
+                        <span class="${statusClass}">
+                            <i class="${statusIcon}"></i> ${getStatusDisplayText(env.status)}
+                        </span>
+                        <span class="float-end">
+                            <i class="fas fa-network-wired"></i> ${env.port}
+                        </span>
+                    </p>
+                </div>
+            </div>
+        `;
+        
+        return col;
+    }
+
+    function selectEnvironment(envKey) {
+        selectedEnv = envKey;
+        displayEnvironments(); // Refresh to show selection
+        updateEnvironmentInfo(envKey);
+        updateUI();
+    }
+
+    function updateEnvironmentInfo(envKey) {
+        fetch(`/api/environment/${envKey}`)
+            .then(response => response.json())
+            .then(data => {
+                const infoDiv = document.getElementById('env-info');
+                const statusClass = data.status === 'running' ? 'status-running' : 
+                                   data.status === 'stopped' ? 'status-stopped' : 
+                                   data.status === 'built' ? 'status-built' :
+                                   data.status === 'template-ready' ? 'status-template-ready' : 'status-unknown';
+                
+                infoDiv.innerHTML = `
+                    <p><strong>Name:</strong> ${data.name}</p>
+                    <p><strong>Type:</strong> ${data.type === 'vagrant' ? '🗺️ Vagrant' : '🐳 Docker Compose'}</p>
+                    <p><strong>Status:</strong> <span class="${statusClass}">${getStatusDisplayText(data.status)}</span></p>
+                    <p><strong>Port:</strong> ${data.port}</p>
+                    <p><strong>Container:</strong> ${data.container}</p>
+                    <p><strong>Image:</strong> ${data.image}</p>
+                    <p><strong>Volume:</strong> ${data.volume}</p>
+                    <p><strong>SSH Command:</strong> <code>${data.ssh_command}</code></p>
+                    <p><strong>Credentials:</strong> ${data.credentials}</p>
+                    <p><strong>Description:</strong> ${data.description}</p>
+                `;
+            })
+            .catch(error => {
+                console.error('Error loading environment info:', error);
+            });
+    }
+
+    function updateUI() {
+        const buttons = document.querySelectorAll('.btn-action');
+        buttons.forEach(btn => {
+            btn.disabled = !selectedEnv;
+        });
+    }
+
+    function refreshEnvironments() {
+        appendOutput('🔄 Refreshing environment status...');
+        loadEnvironments();
+        appendOutput('✅ Status refreshed!');
+    }
+
+    function buildEnvironment() {
+        if (!selectedEnv) return;
+        const noCache = document.getElementById('no-cache').checked;
+        console.log('Building environment:', selectedEnv, 'no_cache:', noCache);
+        
+        // Show progress indicators
+        showProgressBar(`Building ${selectedEnv}`, 'Building');
+        showActivityIndicator(`Building ${selectedEnv} environment...`);
+        setAllButtonsLoading(true);
+        
+        socket.emit('build_environment', {env_key: selectedEnv, no_cache: noCache});
+    }
+
+    function startEnvironment() {
+        if (!selectedEnv) return;
+        console.log('Starting environment:', selectedEnv);
+        
+        // Show progress indicators
+        showProgressBar(`Starting ${selectedEnv}`, 'Starting');
+        showActivityIndicator(`Starting ${selectedEnv} environment...`);
+        setAllButtonsLoading(true);
+        
+        socket.emit('start_environment', {env_key: selectedEnv});
+    }
+
+    function stopEnvironment() {
+        if (!selectedEnv) return;
+        console.log('Stopping environment:', selectedEnv);
+        
+        // Show progress indicators
+        showProgressBar(`Stopping ${selectedEnv}`, 'Stopping');
+        showActivityIndicator(`Stopping ${selectedEnv} environment...`);
+        setAllButtonsLoading(true);
+        
+        socket.emit('stop_environment', {env_key: selectedEnv});
+    }
+
+    function restartEnvironment() {
+        if (!selectedEnv) return;
+        
+        // Show progress indicators
+        showProgressBar(`Restarting ${selectedEnv}`, 'Restarting');
+        showActivityIndicator(`Restarting ${selectedEnv} environment...`);
+        setAllButtonsLoading(true);
+        
+        socket.emit('restart_environment', {env_key: selectedEnv});
+    }
+
+    function clearEnvironment() {
+        if (!selectedEnv) return;
+        if (confirm(`Are you sure you want to clear the ${selectedEnv} environment?`)) {
+            // Show progress indicators
+            showProgressBar(`Clearing ${selectedEnv}`, 'Clearing');
+            showActivityIndicator(`Clearing ${selectedEnv} environment...`);
+            setAllButtonsLoading(true);
+            
+            const removeVolumes = document.getElementById('remove-volumes').checked;
+            socket.emit('clear_environment', {env_key: selectedEnv, remove_volumes: removeVolumes});
+        }
+    }
+
+    function deleteEnvironment() {
+        if (!selectedEnv) return;
+        const env = environments.find(e => e.key === selectedEnv);
+        if (confirm(`Are you sure you want to delete the '${env.name}' environment?\n\nThis will permanently remove the environment configuration.`)) {
+            // Show progress indicators
+            showProgressBar(`Deleting ${selectedEnv}`, 'Deleting');
+            showActivityIndicator(`Deleting ${selectedEnv} environment...`);
+            setAllButtonsLoading(true);
+            
+            const removeVolumes = document.getElementById('delete-volumes').checked;
+            const removeImages = document.getElementById('remove-images').checked;
+            socket.emit('delete_environment', {
+                env_key: selectedEnv, 
+                remove_volumes: removeVolumes,
+                remove_images: removeImages
+            });
+        }
+    }
+
+    function editEnvironment() {
+        if (!selectedEnv) return;
+        const env = environments.find(e => e.key === selectedEnv);
+        
+        document.getElementById('edit-name').value = env.name;
+        document.getElementById('edit-path').value = env.path;
+        document.getElementById('edit-port').value = env.port;
+        document.getElementById('edit-container').value = env.container;
+        document.getElementById('edit-image').value = env.image;
+        document.getElementById('edit-volume').value = env.volume;
+        
+        new bootstrap.Modal(document.getElementById('editModal')).show();
+    }
+
+    function saveEnvironment() {
+        const data = {
+            env_key: selectedEnv,
+            name: document.getElementById('edit-name').value,
+            path: document.getElementById('edit-path').value,
+            port: parseInt(document.getElementById('edit-port').value),
+            container: document.getElementById('edit-container').value,
+            image: document.getElementById('edit-image').value,
+            volume: document.getElementById('edit-volume').value
+        };
+        
+        fetch('/api/edit-environment', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.error) {
+                alert('Error: ' + result.error);
+            } else {
+                appendOutput('✅ Environment updated successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('editModal')).hide();
+                loadEnvironments();
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
+        });
+    }
+
+    function cloneEnvironment() {
+        if (!selectedEnv) return;
+        const env = environments.find(e => e.key === selectedEnv);
+        
+        document.getElementById('clone-source-info').textContent = `${env.name} (${env.key}) - Port: ${env.port}`;
+        document.getElementById('clone-key').value = '';
+        document.getElementById('clone-name').value = `${env.name} (Clone)`;
+        
+        // Suggest next available port
+        const usedPorts = environments.map(e => e.port);
+        const suggestedPort = Math.max(...usedPorts) + 1;
+        document.getElementById('clone-port').value = suggestedPort;
+        
+        new bootstrap.Modal(document.getElementById('cloneModal')).show();
+    }
+
+    function performClone() {
+        const data = {
+            source_env: selectedEnv,
+            new_key: document.getElementById('clone-key').value,
+            new_name: document.getElementById('clone-name').value,
+            new_port: parseInt(document.getElementById('clone-port').value)
+        };
+        
+        fetch('/api/clone-environment', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(data)
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.error) {
+                alert('Error: ' + result.error);
+            } else {
+                appendOutput('✅ Environment cloned successfully!');
+                bootstrap.Modal.getInstance(document.getElementById('cloneModal')).hide();
+                loadEnvironments();
+            }
+        })
+        .catch(error => {
+            alert('Error: ' + error.message);
+        });
+    }
+
+    function showContainerInfo() {
+        if (!selectedEnv) return;
+        new bootstrap.Modal(document.getElementById('infoModal')).show();
+        loadContainerInfo();
+    }
+
+    function loadContainerInfo() {
+        if (!selectedEnv) return;
+        
+        document.getElementById('container-info').innerHTML = '<p>Loading...</p>';
+        document.getElementById('image-info').innerHTML = '<p>Loading...</p>';
+        
+        // Load container info
+        fetch(`/api/container-info/${selectedEnv}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('container-info').innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                } else {
+                    document.getElementById('container-info').innerHTML = `
+                        <p><strong>Name:</strong> ${data.name || 'N/A'}</p>
+                        <p><strong>Status:</strong> ${data.status || 'N/A'}</p>
+                        <p><strong>Image:</strong> ${data.image || 'N/A'}</p>
+                        <p><strong>Created:</strong> ${data.created || 'N/A'}</p>
+                        <p><strong>Ports:</strong> ${data.ports || 'N/A'}</p>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('container-info').innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+            });
+        
+        // Load image info
+        fetch(`/api/image-info/${selectedEnv}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    document.getElementById('image-info').innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+                } else {
+                    document.getElementById('image-info').innerHTML = `
+                        <p><strong>Name:</strong> ${data.name || 'N/A'}</p>
+                        <p><strong>ID:</strong> ${data.id || 'N/A'}</p>
+                        <p><strong>Size:</strong> ${data.size || 'N/A'}</p>
+                        <p><strong>Created:</strong> ${data.created || 'N/A'}</p>
+                        <p><strong>Exists:</strong> ${data.exists ? 'Yes' : 'No'}</p>
+                    `;
+                }
+            })
+            .catch(error => {
+                document.getElementById('image-info').innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+            });
+    }
+
+    function appendOutput(message) {
+        const output = document.getElementById('output');
+        const timestamp = new Date().toLocaleTimeString();
+        console.log('Appending output:', message);
+        
+        // Determine output type and apply appropriate styling
+        let cssClass = 'output-stdout';
+        if (message.startsWith('🔧 Running:')) {
+            cssClass = 'output-command';
+        } else if (message.startsWith('📤')) {
+            cssClass = 'output-stdout';
+        } else if (message.startsWith('⚠️')) {
+            cssClass = 'output-stderr';
+        } else if (message.includes('✅') || message.includes('completed successfully')) {
+            cssClass = 'output-success';
+        } else if (message.includes('❌') || message.includes('error') || message.includes('failed')) {
+            cssClass = 'output-error';
+        }
+        
+        output.innerHTML += `<div class="${cssClass}">[${timestamp}] ${message}</div>`;
+        output.scrollTop = output.scrollHeight;
+    }
+
+    function clearOutput() {
+        document.getElementById('output').innerHTML = '';
+    }
+
+    function getStatusDisplayText(status) {
+        switch(status) {
+            case 'running': return 'Running';
+            case 'stopped': return 'Stopped';
+            case 'built': return 'Built';
+            case 'template-ready': return 'Ready to Build';
+            case 'not found': return 'Not Found';
+            case 'error': return 'Error';
+            default: return status;
+        }
+    }
+
+    // Progress and Activity Indicator Functions
+    function showProgressBar(label, status = 'In Progress') {
+        const container = document.getElementById('progress-container');
+        const labelEl = document.getElementById('progress-label');
+        const statusEl = document.getElementById('progress-status');
+        const progressBar = document.getElementById('progress-bar');
+        
+        labelEl.textContent = label;
+        statusEl.textContent = status;
+        statusEl.className = 'badge bg-primary';
+        progressBar.style.width = '0%';
+        progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated';
+        
+        container.style.display = 'block';
+    }
+
+    function updateProgressBar(percentage, label = null, status = null) {
+        const progressBar = document.getElementById('progress-bar');
+        const labelEl = document.getElementById('progress-label');
+        const statusEl = document.getElementById('progress-status');
+        
+        progressBar.style.width = percentage + '%';
+        progressBar.textContent = percentage + '%';
+        
+        if (label) labelEl.textContent = label;
+        if (status) statusEl.textContent = status;
+        
+        // Change color based on progress
+        if (percentage < 30) {
+            progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-info';
+        } else if (percentage < 70) {
+            progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-warning';
+        } else {
+            progressBar.className = 'progress-bar progress-bar-striped progress-bar-animated bg-success';
+        }
+    }
+
+    function hideProgressBar() {
+        document.getElementById('progress-container').style.display = 'none';
+    }
+
+    function showActivityIndicator(message = 'Operation in progress...') {
+        const indicator = document.getElementById('activity-indicator');
+        const messageEl = document.getElementById('activity-message');
+        
+        messageEl.textContent = message;
+        indicator.style.display = 'block';
+    }
+
+    function hideActivityIndicator() {
+        document.getElementById('activity-indicator').style.display = 'none';
+    }
+
+    function setButtonLoading(buttonId, loading = true) {
+        const button = document.getElementById(buttonId) || document.querySelector(`button[onclick*="${buttonId}"]`);
+        if (button) {
+            if (loading) {
+                button.classList.add('btn-loading');
+                button.disabled = true;
+                button.setAttribute('data-original-text', button.innerHTML);
+                button.innerHTML = '<span class="visually-hidden">Loading...</span>';
+            } else {
+                button.classList.remove('btn-loading');
+                button.disabled = false;
+                button.innerHTML = button.getAttribute('data-original-text') || button.innerHTML;
+            }
+        }
+    }
+
+    function setAllButtonsLoading(loading = true) {
+        const buttons = document.querySelectorAll('.btn-action');
+        buttons.forEach(button => {
+            if (loading) {
+                button.classList.add('btn-loading');
+                button.disabled = true;
+            } else {
+                button.classList.remove('btn-loading');
+                button.disabled = !selectedEnv; // Only enable if environment is selected
+            }
+        });
+    }
+</script>
+{% endblock %}

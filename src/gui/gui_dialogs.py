@@ -6,6 +6,9 @@ Contains edit and clone dialog implementations
 
 import tkinter as tk
 from tkinter import ttk, messagebox
+import logging
+
+logger = logging.getLogger(__name__)
 
 class EditEnvironmentDialog:
     """Dialog for editing environment configuration"""
@@ -88,9 +91,11 @@ class EditEnvironmentDialog:
                 for other_key, other_env in self.manager.environments.items():
                     if other_key != self.env_key and other_env["port"] == port_int:
                         messagebox.showerror("Error", f"Port {port_int} is already used by environment '{other_key}'!")
+                        logger.warning(f"Port conflict: {port_int} already used by {other_key}")
                         return
             except ValueError as e:
                 messagebox.showerror("Error", f"Invalid port: {e}")
+                logger.warning(f"Invalid port entered: {port_value} - {e}")
                 return
             
             # Validate path
@@ -99,9 +104,11 @@ class EditEnvironmentDialog:
                 from pathlib import Path
                 path_obj = self.manager.base_path / path_value
                 if not path_obj.exists():
+                    logger.warning(f"Path {path_obj} does not exist. Asking user to confirm.")
                     result = messagebox.askyesno("Path Warning", 
                         f"Path {path_obj} does not exist!\n\nContinue anyway?")
                     if not result:
+                        logger.info("User cancelled due to non-existent path.")
                         return
             
             # Update environment
@@ -109,6 +116,7 @@ class EditEnvironmentDialog:
                 value = entry.get().strip()
                 if not value:
                     messagebox.showerror("Error", f"{field.capitalize()} cannot be empty")
+                    logger.warning(f"{field.capitalize()} is empty.")
                     return
                 
                 if field == "port":
@@ -120,8 +128,10 @@ class EditEnvironmentDialog:
             self.manager.save_environments()
             self.result = True
             self.dialog.destroy()
+            logger.info(f"Changes saved for environment {self.env_key}")
             
         except Exception as e:
+            logger.exception(f"Failed to save changes for environment {self.env_key}")
             messagebox.showerror("Error", f"Failed to save changes: {str(e)}")
     
     def cancel(self):
@@ -250,14 +260,17 @@ class CloneEnvironmentDialog:
             # Validate inputs
             if not new_key:
                 messagebox.showerror("Error", "Unique identifier cannot be empty")
+                logger.warning("Clone environment: Unique identifier is empty.")
                 return
             
             if not new_name:
                 messagebox.showerror("Error", "Display name cannot be empty")
+                logger.warning("Clone environment: Display name is empty.")
                 return
             
             if new_key in self.manager.environments:
                 messagebox.showerror("Error", f"Unique identifier '{new_key}' already exists")
+                logger.warning(f"Clone environment: Unique identifier {new_key} already exists.")
                 return
             
             # Validate port
@@ -267,17 +280,20 @@ class CloneEnvironmentDialog:
                     raise ValueError("Port must be between 1 and 65535")
             except ValueError as e:
                 messagebox.showerror("Error", f"Invalid port: {e}")
+                logger.warning(f"Clone environment: Invalid port {new_port} - {e}")
                 return
             
             # Check if port is already used
             used_ports = [env["port"] for env in self.manager.environments.values()]
             if port_int in used_ports:
                 messagebox.showerror("Error", f"Port {port_int} is already in use")
+                logger.warning(f"Clone environment: Port {port_int} is already in use.")
                 return
             
             # Show progress (disable button during cloning)
             self.clone_btn.config(text="⏳ Cloning...", state="disabled")
             self.dialog.update()
+            logger.info(f"Attempting to clone {self.source_env} to {new_key}.")
             
             # Clone the environment
             success = self.manager.clone_environment(self.source_env, new_key, new_name, port_int)
@@ -288,15 +304,17 @@ class CloneEnvironmentDialog:
                 self.result = True
                 self.new_env_key = new_key
                 self.dialog.destroy()
+                logger.info(f"Successfully cloned {self.source_env} to {new_key}.")
             else:
                 # Re-enable button on failure
                 self.clone_btn.config(text="✅ Clone Environment", state="normal")
                 messagebox.showerror("Clone Failed", f"Failed to clone environment '{self.source_env}' to '{new_key}'.\n\nPossible causes:\n• Directory already exists\n• Permission issues\n• Invalid configuration\n\nPlease check the environment configuration and try again.")
+                logger.error(f"Failed to clone {self.source_env} to {new_key}.")
             
         except Exception as e:
             # Re-enable button on exception
             self.clone_btn.config(text="✅ Clone Environment", state="normal")
-            
+            logger.exception(f"An unexpected error occurred during cloning from {self.source_env} to {new_key}.")
             messagebox.showerror("Clone Error", f"An error occurred while cloning the environment:\n\n{str(e)}\n\nPlease try again or check the logs for more details.")
     
     def cancel(self):

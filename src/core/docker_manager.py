@@ -11,9 +11,11 @@ import json
 import shutil
 import re
 from typing import Dict, List, Optional
-# argparse removed - GUI only
 from pathlib import Path
 import yaml
+import logging
+
+logger = logging.getLogger(__name__)
 
 class DockerEnvironmentManager:
     """Manager for Docker development environments"""
@@ -31,8 +33,7 @@ class DockerEnvironmentManager:
                     self.environments = json.load(f)
                 return
             except Exception as e:
-                # Error loading config, using defaults
-                pass
+                logger.warning(f"Error loading config file {self.config_file}: {e}. Using default environments.")
         
         # Default environments - All discovered templates
         self.environments = {
@@ -94,7 +95,6 @@ class DockerEnvironmentManager:
                 "volume": "workspace:/workspace",
                 "type": "vagrant",
                 "ssh_user": "dev",
-                "ssh_password": "devpass",
                 "description": "Basic Ubuntu development environment with cross-platform volume mounting"
             },
             "vagrant-ubuntu-cuda": {
@@ -106,7 +106,6 @@ class DockerEnvironmentManager:
                 "volume": "workspace:/workspace",
                 "type": "vagrant",
                 "ssh_user": "dev",
-                "ssh_password": "devpass",
                 "description": "Ubuntu with NVIDIA GPU support for CUDA development",
                 "gpu_support": True
             },
@@ -119,7 +118,6 @@ class DockerEnvironmentManager:
                 "volume": "workspace:/workspace",
                 "type": "vagrant",
                 "ssh_user": "dev",
-                "ssh_password": "devpass",
                 "vnc_port": 6000,
                 "description": "Ubuntu with NVIDIA GPU support and VNC remote desktop access",
                 "gpu_support": True
@@ -133,7 +131,6 @@ class DockerEnvironmentManager:
                 "volume": "workspace:/workspace",
                 "type": "vagrant",
                 "ssh_user": "dev",
-                "ssh_password": "devpass",
                 "description": "C++ development environment with build tools and cross-platform support"
             },
             "vagrant-python": {
@@ -145,7 +142,6 @@ class DockerEnvironmentManager:
                 "volume": "workspace:/workspace",
                 "type": "vagrant",
                 "ssh_user": "dev",
-                "ssh_password": "devpass",
                 "description": "Python development environment with essential packages and cross-platform support"
             }
         }
@@ -157,8 +153,7 @@ class DockerEnvironmentManager:
             with open(self.config_file, 'w') as f:
                 json.dump(self.environments, f, indent=2)
         except Exception as e:
-            # Error saving config - GUI handles errors
-            pass
+            logger.error(f"Error saving config file {self.config_file}: {e}")
     
     def run_command(self, command: List[str], cwd: str = None) -> tuple:
         """Run a shell command and return output"""
@@ -170,8 +165,11 @@ class DockerEnvironmentManager:
                 cwd=cwd or self.base_path,
                 check=False
             )
+            if result.returncode != 0:
+                logger.error(f"Command failed: {' '.join(command)}\nStdout: {result.stdout}\nStderr: {result.stderr}")
             return result.returncode, result.stdout, result.stderr
         except Exception as e:
+            logger.exception(f"Exception while running command: {' '.join(command)}")
             return 1, "", str(e)
     
     def get_environments_list(self) -> list:
@@ -179,7 +177,7 @@ class DockerEnvironmentManager:
         environments = []
         for key, env in self.environments.items():
             env_type = env.get("type", "docker-compose")
-            env_path = self.base_path / env["path"] if env_type == "vagrant" else None
+            env_path = self.base_path / "templates" / env["path"] if env_type == "vagrant" else None
             status = self.get_container_status(env["container"], env_type, str(env_path) if env_path else None)
             environments.append({
                 "key": key,
@@ -192,24 +190,59 @@ class DockerEnvironmentManager:
         return environments
     
     def get_container_status(self, container_name: str, env_type: str = "docker-compose", env_path: str = None) -> str:
-        """Get the status of a container or Vagrant environment"""
+        """Get the comprehensive status of a container or Vagrant environment"""
         if env_type == "vagrant" and env_path:
             # Check if vagrant path exists
             if not os.path.exists(env_path):
                 return "path not found"
             return self.get_vagrant_status(env_path)
         else:
-            # Docker container
-            try:
-                returncode, stdout, _ = self.run_command([
-                    "docker", "inspect", "--format={{.State.Status}}", container_name
-                ])
-                
-                if returncode == 0:
-                    return stdout.strip()
+            # Docker container - check comprehensive status
+            return self.get_docker_environment_status(container_name)
+    
+    def get_docker_environment_status(self, container_name: str) -> str:
+        """Get comprehensive Docker environment status"""
+        try:
+            # First check if container exists and its status
+            returncode, stdout, _ = self.run_command([
+                "docker", "inspect", "--format={{.State.Status}}", container_name
+            ])
+            
+            if returncode == 0:
+                # Container exists, return its status
+                return stdout.strip()
+            
+            # Container doesn't exist, check if image is built
+            # Try to find environment by container name
+            image_name = None
+            env_path_for_template = None
+            for env_key, env in self.environments.items():
+                if env["container"] == container_name:
+                    image_name = env["image"]
+                    env_path_for_template = env["path"]
+                    break
+            
+            if not image_name:
                 return "not found"
-            except Exception as e:
-                return "error"
+            
+            # Check if image exists
+            returncode, stdout, _ = self.run_command([
+                "docker", "images", "--format", "{{.Repository}}:{{.Tag}}", image_name
+            ])
+            
+            if returncode == 0 and stdout.strip():
+                return "built"
+            
+            # Image doesn't exist, check if template directory exists
+            if env_path_for_template:
+                template_path = self.base_path / "templates" / env_path_for_template
+                if template_path.exists():
+                    return "template-ready"
+            
+            return "not found"
+            
+        except Exception as e:
+            return "error"
     
     def get_container_info(self, container_name: str) -> dict:
         """Get detailed container information"""
@@ -315,6 +348,14 @@ class DockerEnvironmentManager:
                 "docker", "rmi", "-f", env["image"]
             ])
         
+        # Remove template directory if it exists
+        env_path = self.base_path / "templates" / env["path"]
+        if env_path.exists():
+            try:
+                shutil.rmtree(env_path)
+            except Exception as e:
+                logger.error(f"Could not remove template directory {env_path}: {e}")
+        
         # Remove from environments dictionary
         del self.environments[env_key]
         self.save_environments()
@@ -368,7 +409,7 @@ class DockerEnvironmentManager:
             return False
         
         env = self.environments[env_key]
-        env_path = self.base_path / env["path"]
+        env_path = self.base_path / "templates" / env["path"]
         
         if not env_path.exists():
             return False
@@ -405,7 +446,7 @@ class DockerEnvironmentManager:
             return False
         
         env = self.environments[env_key]
-        env_path = self.base_path / env["path"]
+        env_path = self.base_path / "templates" / env["path"]
         
         if env.get("type") == "vagrant":
             # For Vagrant environments
@@ -436,7 +477,7 @@ class DockerEnvironmentManager:
             return False
         
         env = self.environments[env_key]
-        env_path = self.base_path / env["path"]
+        env_path = self.base_path / "templates" / env["path"]
         
         if env.get("type") == "vagrant":
             # For Vagrant environments
@@ -462,7 +503,7 @@ class DockerEnvironmentManager:
             return False
         
         env = self.environments[env_key]
-        env_path = self.base_path / env["path"]
+        env_path = self.base_path / "templates" / env["path"]
         
         if env.get("type") == "vagrant":
             # For Vagrant environments
@@ -474,9 +515,11 @@ class DockerEnvironmentManager:
             ], cwd=str(env_path))
             
             # Remove the Docker image
-            self.run_command([
+            returncode, stdout, stderr = self.run_command([
                 "docker", "rmi", env["image"]
             ])
+            if returncode != 0:
+                logger.error(f"Failed to remove Docker image {env["image"]}: {stderr}")
             
             return True
         else:
@@ -487,11 +530,15 @@ class DockerEnvironmentManager:
                 cmd.append("--volumes")
             
             returncode, stdout, stderr = self.run_command(cmd, cwd=str(env_path))
+            if returncode != 0:
+                logger.error(f"Failed to stop and remove Docker Compose environment at {env_path}: {stderr}")
             
             # Remove images
-            self.run_command([
+            returncode, stdout, stderr = self.run_command([
                 "docker", "rmi", env["image"]
             ])
+            if returncode != 0:
+                logger.error(f"Failed to remove Docker image {env["image"]}: {stderr}")
             
             return True
     
@@ -582,8 +629,8 @@ class DockerEnvironmentManager:
         source_config["path"] = str(new_path)
         
         # Clone the directory structure
-        source_full_path = self.base_path / self.environments[source_env]["path"]
-        new_full_path = self.base_path / new_path
+        source_full_path = self.base_path / "templates" / self.environments[source_env]["path"]
+        new_full_path = self.base_path / "templates" / new_path
         
         try:
             if source_full_path.exists():
@@ -631,6 +678,10 @@ class DockerEnvironmentManager:
             service['image'] = config['image']
             service['ports'] = [f"{config['port']}:22"]
             
+            # Update dockerfile path
+            if 'build' in service and 'dockerfile' in service['build']:
+                service['build']['dockerfile'] = config['path'] + '/Dockerfile'
+            
             # Update volumes
             if 'volumes' in service:
                 volume_name = config['volume'].split(':')[0]  # Get volume name before colon
@@ -645,8 +696,7 @@ class DockerEnvironmentManager:
                 yaml.dump(compose_data, f, default_flow_style=False)
                 
         except Exception as e:
-            # Error updating docker-compose.yaml - GUI handles errors
-            pass
+            logger.error(f"Error updating docker-compose.yaml at {compose_file}: {e}")
     
     def update_vagrantfile(self, env_path: Path, config: dict):
         """Update Vagrantfile with new configuration"""
@@ -666,32 +716,32 @@ class DockerEnvironmentManager:
             vm_define_name = container_name
             
             # Update vm.define name (more robust pattern)
-            old_define_pattern = r'config\.vm\.define\s+"[^"]*"'
+            old_define_pattern = r'config\\.vm\\.define\\s+"[^"]*"'
             new_define = f'config.vm.define "{vm_define_name}"'
             content = re.sub(old_define_pattern, new_define, content)
             
             # Update image name
-            old_image_pattern = r'd\.image\s*=\s*"[^"]*"'
+            old_image_pattern = r'd\\.image\\s*=\\s*"[^"]*"'
             new_image = f'd.image = "{config["image"]}"'
             content = re.sub(old_image_pattern, new_image, content)
             
             # Update ports - more flexible pattern
-            old_port_pattern = r'd\.ports\s*=\s*\["[^"]*"\]'
+            old_port_pattern = r'd\\.ports\\s*=\\s*\["[^"]*"\]'
             new_ports = f'd.ports = ["{config["port"]}:22"]'
             content = re.sub(old_port_pattern, new_ports, content)
             
             # Update SSH port
-            old_ssh_port_pattern = r'ssh\.port\s*=\s*\d+'
+            old_ssh_port_pattern = r'ssh\\.port\\s*=\\s*\\d+'
             new_ssh_port = f'ssh.port = {config["port"]}'
             content = re.sub(old_ssh_port_pattern, new_ssh_port, content)
             
             # Update port in comments if they exist
-            old_comment_pattern = r'# Only map port 22 to \d+'
+            old_comment_pattern = r'# Only map port 22 to \\d+'
             new_comment = f'# Only map port 22 to {config["port"]}'
             content = re.sub(old_comment_pattern, new_comment, content)
             
             # Update connection port in comments
-            old_connect_comment_pattern = r'# Connect using port \d+'
+            old_connect_comment_pattern = r'# Connect using port \\d+'
             new_connect_comment = f'# Connect using port {config["port"]}'
             content = re.sub(old_connect_comment_pattern, new_connect_comment, content)
             
@@ -700,7 +750,6 @@ class DockerEnvironmentManager:
                 f.write(content)
                 
         except Exception as e:
-            # Error updating Vagrantfile - GUI handles errors
-            pass
+            logger.error(f"Error updating Vagrantfile at {vagrantfile}: {e}")
     
     # Console-specific methods removed - GUI only backend

@@ -7,6 +7,9 @@ Shows detailed information about containers and images for DevEnvOps
 import tkinter as tk
 from tkinter import ttk
 import threading
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ContainerImageInfoDialog:
     """Dialog to show container and image information"""
@@ -96,6 +99,7 @@ class ContainerImageInfoDialog:
         """Load container and image information"""
         def load_worker():
             try:
+                logger.info(f"Loading container and image info for {self.env_key}")
                 # Get container info
                 container_info = self.manager.get_container_info(self.env["container"])
                 
@@ -105,8 +109,9 @@ class ContainerImageInfoDialog:
                 # Update UI in main thread
                 self.dialog.after(0, lambda: self.update_container_info(container_info))
                 self.dialog.after(0, lambda: self.update_image_info(image_info))
-                
+                logger.info(f"Successfully loaded info for {self.env_key}")
             except Exception as e:
+                logger.exception(f"Error loading info for {self.env_key}")
                 # Show error in main thread
                 self.dialog.after(0, lambda: self.show_error(str(e)))
         

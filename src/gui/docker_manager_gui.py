@@ -14,6 +14,9 @@ from pathlib import Path
 from src.core.docker_manager import DockerEnvironmentManager
 from src.gui.gui_dialogs import EditEnvironmentDialog, CloneEnvironmentDialog
 from src.gui.container_image_info_dialog import ContainerImageInfoDialog
+import logging
+
+logger = logging.getLogger(__name__)
 
 class DockerManagerGUI:
     """GUI for Docker Environment Manager"""
@@ -41,9 +44,11 @@ class DockerManagerGUI:
         
         # Initial refresh - delayed to improve startup time
         self.root.after(100, self.refresh_status)
+        logger.info("DockerManagerGUI initialized.")
     
     def setup_ui(self):
         """Setup the user interface"""
+        logger.debug("Setting up UI...")
         # Main frame
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
@@ -308,7 +313,8 @@ class DockerManagerGUI:
                 credentials += " | GPU: Enabled"
         else:
             ssh_cmd = f"ssh dev@localhost -p {env['port']}"
-            credentials = "dev / devpass"
+            # TODO: Implement secure handling of credentials
+            credentials = "Credentials not available via GUI"
         
         self.info_labels["SSH Command"].config(text=ssh_cmd)
         self.info_labels["Credentials"].config(text=credentials)
@@ -355,12 +361,15 @@ class DockerManagerGUI:
         """Run a command in a separate thread"""
         def worker():
             try:
+                logger.info(f"Running command in thread: {command_func.__name__}")
                 result = command_func(*args)
+                logger.info(f"Command {command_func.__name__} completed with result: {result}")
                 # Clear cache and refresh
                 self.status_cache.clear()
                 self.output_queue.put(("refresh", None))
                 return result
             except Exception as e:
+                logger.exception(f"Error in threaded command {command_func.__name__}")
                 self.output_queue.put(("error", str(e)))
         
         thread = threading.Thread(target=worker)
@@ -373,17 +382,24 @@ class DockerManagerGUI:
             while True:
                 msg_type, data = self.output_queue.get_nowait()
                 if msg_type == "refresh":
+                    logger.debug("Received refresh signal.")
                     self.refresh_status()
                 elif msg_type == "error":
+                    logger.error(f"Error from background thread: {data}")
                     messagebox.showerror("Error", data)
                 elif msg_type == "output":
+                    logger.info(f"Output: {data}")
                     self.append_output(data)
                 elif msg_type == "populate":
+                    logger.debug("Received populate signal.")
                     self.populate_environment_list()
                 elif msg_type == "clear_selection":
+                    logger.debug("Received clear_selection signal.")
                     self.clear_selection()
         except queue.Empty:
             pass
+        except Exception as e:
+            logger.exception("Error in process_output")
         
         # Schedule next check - reduce frequency to improve performance
         self.root.after(500, self.process_output)
@@ -417,17 +433,25 @@ class DockerManagerGUI:
         """Build selected environment"""
         if not hasattr(self, 'selected_env'):
             messagebox.showwarning("Warning", "Please select an environment first")
+            logger.warning("Build environment: No environment selected.")
             return
         
         self.append_output(f"Building {self.selected_env} environment...")
+        logger.info(f"Building {self.selected_env} environment.")
         
         def build_worker():
-            success = self.manager.build_environment(self.selected_env, self.no_cache_var.get())
-            status = "✅ Build completed successfully!" if success else "❌ Build failed!"
-            self.output_queue.put(("output", status))
-            # Clear cache and refresh
-            self.status_cache.clear()
-            self.output_queue.put(("refresh", None))
+            try:
+                success = self.manager.build_environment(self.selected_env, self.no_cache_var.get())
+                status = "✅ Build completed successfully!" if success else "❌ Build failed!"
+                self.output_queue.put(("output", status))
+                logger.info(f"Build for {self.selected_env} completed. Success: {success}")
+            except Exception as e:
+                logger.exception(f"Error during build for {self.selected_env}")
+                self.output_queue.put(("output", f"❌ Build error: {str(e)}"))
+            finally:
+                # Clear cache and refresh
+                self.status_cache.clear()
+                self.output_queue.put(("refresh", None))
         
         thread = threading.Thread(target=build_worker)
         thread.daemon = True
@@ -437,32 +461,42 @@ class DockerManagerGUI:
         """Start selected environment"""
         if not hasattr(self, 'selected_env'):
             messagebox.showwarning("Warning", "Please select an environment first")
+            logger.warning("Start environment: No environment selected.")
             return
         
         self.append_output(f"Starting {self.selected_env} environment...")
+        logger.info(f"Starting {self.selected_env} environment.")
         
         def start_worker():
-            success = self.manager.start_environment(self.selected_env)
-            if success:
-                env = self.manager.environments[self.selected_env]
-                env_type = env.get("type", "docker-compose")
-                self.output_queue.put(("output", f"✅ {self.selected_env} started successfully!"))
-                
-                if env_type == "vagrant":
-                    ssh_user = env.get("ssh_user", "root")
-                    self.output_queue.put(("output", f"📡 SSH: ssh {ssh_user}@localhost -p {env['port']}"))
-                    if env.get("ssh_key"):
-                        self.output_queue.put(("output", f"🔑 SSH Key: {env['ssh_key']}"))
-                    if env.get("vnc_port"):
-                        self.output_queue.put(("output", f"🗺 VNC: Connect to 127.0.0.1:{env['vnc_port']}"))
+            try:
+                success = self.manager.start_environment(self.selected_env)
+                if success:
+                    env = self.manager.environments[self.selected_env]
+                    env_type = env.get("type", "docker-compose")
+                    self.output_queue.put(("output", f"✅ {self.selected_env} started successfully!"))
+                    logger.info(f"{self.selected_env} started successfully.")
+                    
+                    if env_type == "vagrant":
+                        ssh_user = env.get("ssh_user", "root")
+                        self.output_queue.put(("output", f"📡 SSH: ssh {ssh_user}@localhost -p {env['port']}"))
+                        if env.get("ssh_key"):
+                            self.output_queue.put(("output", f"🔑 SSH Key: {env['ssh_key']}"))
+                        if env.get("vnc_port"):
+                            self.output_queue.put(("output", f"🗺 VNC: Connect to 127.0.0.1:{env['vnc_port']}"))
+                    else:
+                        self.output_queue.put(("output", f"📡 SSH: ssh dev@localhost -p {env['port']}"))
+                        # TODO: Implement secure handling of credentials
+                        self.output_queue.put(("output", f"🔑 Credentials: Not available via GUI"))
                 else:
-                    self.output_queue.put(("output", f"📡 SSH: ssh dev@localhost -p {env['port']}"))
-                    self.output_queue.put(("output", f"🔑 Credentials: dev / devpass"))
-            else:
-                self.output_queue.put(("output", f"❌ Failed to start {self.selected_env} environment!"))
-            # Clear cache and refresh
-            self.status_cache.clear()
-            self.output_queue.put(("refresh", None))
+                    self.output_queue.put(("output", f"❌ Failed to start {self.selected_env} environment!"))
+                    logger.error(f"Failed to start {self.selected_env} environment.")
+            except Exception as e:
+                logger.exception(f"Error during start for {self.selected_env}")
+                self.output_queue.put(("output", f"❌ Start error: {str(e)}"))
+            finally:
+                # Clear cache and refresh
+                self.status_cache.clear()
+                self.output_queue.put(("refresh", None))
         
         thread = threading.Thread(target=start_worker)
         thread.daemon = True
@@ -472,50 +506,71 @@ class DockerManagerGUI:
         """Stop selected environment"""
         if not hasattr(self, 'selected_env'):
             messagebox.showwarning("Warning", "Please select an environment first")
+            logger.warning("Stop environment: No environment selected.")
             return
         
         self.append_output(f"Stopping {self.selected_env} environment...")
+        logger.info(f"Stopping {self.selected_env} environment.")
         self.run_command_threaded(self.manager.stop_environment, self.selected_env)
     
     def restart_environment(self):
         """Restart selected environment"""
         if not hasattr(self, 'selected_env'):
             messagebox.showwarning("Warning", "Please select an environment first")
+            logger.warning("Restart environment: No environment selected.")
             return
         
         self.append_output(f"🔄 Restarting {self.selected_env} environment...")
+        logger.info(f"Restarting {self.selected_env} environment.")
         
         def restart_worker():
-            # Stop the environment first
-            self.append_output(f"🛑 Stopping {self.selected_env} environment...")
-            stop_success = self.manager.stop_environment(self.selected_env)
-            if stop_success:
-                self.append_output(f"✅ {self.selected_env} stopped successfully!")
-            
-            # Start the environment
-            self.append_output(f"🚀 Starting {self.selected_env} environment...")
-            start_success = self.manager.start_environment(self.selected_env)
-            if start_success:
-                env = self.manager.environments[self.selected_env]
-                env_type = env.get("type", "docker-compose")
-                self.append_output(f"✅ {self.selected_env} started successfully!")
-                
-                if env_type == "vagrant":
-                    ssh_user = env.get("ssh_user", "root")
-                    self.append_output(f"📡 SSH: ssh {ssh_user}@localhost -p {env['port']}")
-                    if env.get("ssh_key"):
-                        self.append_output(f"🔑 SSH Key: {env['ssh_key']}")
-                    if env.get("vnc_port"):
-                        self.append_output(f"🗺 VNC: Connect to 127.0.0.1:{env['vnc_port']}")
+            try:
+                # Stop the environment first
+                self.append_output(f"🛑 Stopping {self.selected_env} environment...")
+                logger.info(f"Stopping {self.selected_env} for restart.")
+                stop_success = self.manager.stop_environment(self.selected_env)
+                if stop_success:
+                    self.append_output(f"✅ {self.selected_env} stopped successfully!")
+                    logger.info(f"{self.selected_env} stopped for restart.")
                 else:
-                    self.append_output(f"📡 SSH: ssh dev@localhost -p {env['port']}")
-                    self.append_output(f"🔑 Credentials: dev / devpass")
-            else:
-                self.append_output(f"❌ Failed to start {self.selected_env} environment!")
-            
-            # Clear cache and refresh
-            self.status_cache.clear()
-            self.output_queue.put(("refresh", None))
+                    self.append_output(f"❌ Failed to stop {self.selected_env} for restart!")
+                    logger.error(f"Failed to stop {self.selected_env} for restart.")
+                    # If stop fails, we might not want to proceed with start
+                    self.status_cache.clear()
+                    self.output_queue.put(("refresh", None))
+                    return
+                
+                # Start the environment
+                self.append_output(f"🚀 Starting {self.selected_env} environment...")
+                logger.info(f"Starting {self.selected_env} after stop.")
+                start_success = self.manager.start_environment(self.selected_env)
+                if start_success:
+                    env = self.manager.environments[self.selected_env]
+                    env_type = env.get("type", "docker-compose")
+                    self.append_output(f"✅ {self.selected_env} started successfully!")
+                    logger.info(f"{self.selected_env} started successfully after restart.")
+                    
+                    if env_type == "vagrant":
+                        ssh_user = env.get("ssh_user", "root")
+                        self.append_output(f"📡 SSH: ssh {ssh_user}@localhost -p {env['port']}")
+                        if env.get("ssh_key"):
+                            self.append_output(f"🔑 SSH Key: {env['ssh_key']}")
+                        if env.get("vnc_port"):
+                            self.append_output(f"🗺 VNC: Connect to 127.0.0.1:{env['vnc_port']}")
+                    else:
+                        self.append_output(f"📡 SSH: ssh dev@localhost -p {env['port']}")
+                        # TODO: Implement secure handling of credentials
+                        self.append_output(f"🔑 Credentials: Not available via GUI")
+                else:
+                    self.append_output(f"❌ Failed to start {self.selected_env} environment!")
+                    logger.error(f"Failed to start {self.selected_env} after stop.")
+            except Exception as e:
+                logger.exception(f"Error during restart for {self.selected_env}")
+                self.output_queue.put(("output", f"❌ Restart error: {str(e)}"))
+            finally:
+                # Clear cache and refresh
+                self.status_cache.clear()
+                self.output_queue.put(("refresh", None))
         
         thread = threading.Thread(target=restart_worker)
         thread.daemon = True
@@ -525,10 +580,12 @@ class DockerManagerGUI:
         """Clear selected environment"""
         if not hasattr(self, 'selected_env'):
             messagebox.showwarning("Warning", "Please select an environment first")
+            logger.warning("Clear environment: No environment selected.")
             return
         
         if messagebox.askyesno("Confirm", f"Are you sure you want to clear the {self.selected_env} environment?"):
             self.append_output(f"Clearing {self.selected_env} environment...")
+            logger.info(f"Clearing {self.selected_env} environment.")
             self.run_command_threaded(self.manager.clear_environment, self.selected_env, self.remove_volumes_var.get())
     
     def ssh_connect(self):
@@ -554,31 +611,36 @@ class DockerManagerGUI:
             ssh_command = f"ssh dev@localhost -p {env['port']}"
         
         try:
-            # Try different terminal commands based on OS
             if os.name == 'nt':  # Windows
-                os.system(f"start cmd /k {ssh_command}")
-            elif os.name == 'posix':  # Linux/Mac
-                # Try different terminal emulators
+                subprocess.Popen(['start', 'cmd', '/k', ssh_command], shell=True)
+            elif sys.platform == 'darwin':  # macOS
+                subprocess.Popen(['open', '-a', 'Terminal', ssh_command])
+            elif os.name == 'posix':  # Linux
                 terminals = ['gnome-terminal', 'xterm', 'konsole', 'terminal']
                 for term in terminals:
-                    if subprocess.call(['which', term], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) == 0:
-                        os.system(f"{term} -e {ssh_command}")
+                    try:
+                        subprocess.run(['which', term], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                        subprocess.Popen([term, '-e', ssh_command])
                         break
+                    except subprocess.CalledProcessError:
+                        continue
                 else:
-                    # Fallback to current terminal
-                    self.append_output(f"Run this command in your terminal: {ssh_command}")
+                    self.append_output(f"Could not find a suitable terminal emulator. Please run this command manually:\n{ssh_command}")
             
             self.append_output(f"🔌 SSH connection opened: {ssh_command}")
-            
+            logger.info(f"SSH connection opened: {ssh_command}")
         except Exception as e:
+            logger.exception("Failed to open SSH connection")
             messagebox.showerror("Error", f"Failed to open SSH connection: {str(e)}")
     
     def edit_environment(self):
         """Edit selected environment"""
         if not hasattr(self, 'selected_env'):
             messagebox.showwarning("Warning", "Please select an environment first")
+            logger.warning("Edit environment: No environment selected.")
             return
         
+        logger.info(f"Opening edit dialog for {self.selected_env}.")
         # Create edit dialog
         edit_window = EditEnvironmentDialog(self.root, self.manager, self.selected_env)
         self.root.wait_window(edit_window.dialog)
@@ -588,13 +650,16 @@ class DockerManagerGUI:
             self.populate_environment_list()
             self.update_environment_info(self.selected_env)
             self.append_output(f"✅ Environment '{self.selected_env}' updated successfully!")
+            logger.info(f"Environment {self.selected_env} updated successfully.")
     
     def clone_environment(self):
         """Clone selected environment"""
         if not hasattr(self, 'selected_env'):
             messagebox.showwarning("Warning", "Please select an environment first")
+            logger.warning("Clone environment: No environment selected.")
             return
         
+        logger.info(f"Opening clone dialog for {self.selected_env}.")
         # Create clone dialog
         clone_window = CloneEnvironmentDialog(self.root, self.manager, self.selected_env)
         self.root.wait_window(clone_window.dialog)
@@ -603,13 +668,16 @@ class DockerManagerGUI:
             # Refresh the environment list
             self.populate_environment_list()
             self.append_output(f"✅ Environment '{clone_window.new_env_key}' cloned from '{self.selected_env}'!")
+            logger.info(f"Environment {clone_window.new_env_key} cloned from {self.selected_env}.")
     
     def show_container_image_info(self):
         """Show container and image information"""
         if not hasattr(self, 'selected_env'):
             messagebox.showwarning("Warning", "Please select an environment first")
+            logger.warning("Show info: No environment selected.")
             return
         
+        logger.info(f"Showing container/image info for {self.selected_env}.")
         # Create info dialog
         info_window = ContainerImageInfoDialog(self.root, self.manager, self.selected_env)
         
@@ -617,6 +685,7 @@ class DockerManagerGUI:
         """Delete selected environment"""
         if not hasattr(self, 'selected_env'):
             messagebox.showwarning("Warning", "Please select an environment first")
+            logger.warning("Delete environment: No environment selected.")
             return
         
         # Confirm deletion
@@ -624,22 +693,30 @@ class DockerManagerGUI:
         if not messagebox.askyesno("Confirm Delete", 
                                    f"Are you sure you want to delete the '{env_name}' environment?\n\n"
                                    f"This will permanently remove the environment configuration."):
+            logger.info(f"Deletion of {self.selected_env} cancelled by user.")
             return
         
         self.append_output(f"🗑️ Deleting {self.selected_env} environment...")
+        logger.info(f"Deleting {self.selected_env} environment.")
         
         def delete_worker():
-            success = self.manager.delete_environment(
-                self.selected_env, 
-                self.delete_volumes_var.get(),
-                self.remove_images_var.get()
-            )
-            if success:
-                self.output_queue.put(("output", f"✅ Environment '{self.selected_env}' deleted successfully!"))
-                self.output_queue.put(("populate", None))  # Refresh environment list
-                self.output_queue.put(("clear_selection", None))  # Clear selection
-            else:
-                self.output_queue.put(("output", f"❌ Failed to delete environment '{self.selected_env}'"))
+            try:
+                success = self.manager.delete_environment(
+                    self.selected_env, 
+                    self.delete_volumes_var.get(),
+                    self.remove_images_var.get()
+                )
+                if success:
+                    self.output_queue.put(("output", f"✅ Environment '{self.selected_env}' deleted successfully!"))
+                    self.output_queue.put(("populate", None))  # Refresh environment list
+                    self.output_queue.put(("clear_selection", None))  # Clear selection
+                    logger.info(f"Environment {self.selected_env} deleted successfully.")
+                else:
+                    self.output_queue.put(("output", f"❌ Failed to delete environment '{self.selected_env}'"))
+                    logger.error(f"Failed to delete environment {self.selected_env}.")
+            except Exception as e:
+                logger.exception(f"Error during delete for {self.selected_env}")
+                self.output_queue.put(("output", f"❌ Delete error: {str(e)}"))
         
         thread = threading.Thread(target=delete_worker)
         thread.daemon = True
