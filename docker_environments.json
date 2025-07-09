@@ -1,0 +1,112 @@
+{
+  "docker-cpp": {
+    "name": "C++ Development (Docker)",
+    "path": "docker/cpp",
+    "port": 3001,
+    "container": "cpp.workspace.common",
+    "image": "cpp.workspace.image",
+    "volume": "cpp.workspace.common.volume:/workspace",
+    "type": "docker-compose",
+    "base_image": "gcc:latest",
+    "description": "C++ development with GCC, CMake, Git, GDB, Clang, LLVM, Valgrind, Conan package manager, Google Test"
+  },
+  "docker-cuda": {
+    "name": "CUDA Development (Docker)",
+    "path": "docker/cuda",
+    "port": 3003,
+    "container": "cuda.workspace",
+    "image": "cuda.workspace.image",
+    "volume": "cuda_workspace_volume:/workspace",
+    "type": "docker-compose",
+    "base_image": "nvidia/cuda:12.9.0-cudnn-devel-ubuntu24.04",
+    "description": "NVIDIA CUDA 12.9.0 with CUDNN development environment, CMake, GDB, Clang, LLVM, Valgrind",
+    "gpu_support": true
+  },
+  "docker-python": {
+    "name": "Python Development (Docker)",
+    "path": "docker/python",
+    "port": 4001,
+    "container": "python.workspace.common",
+    "image": "python.workspace.image",
+    "volume": "python.workspace.common.volume:/workspace",
+    "type": "docker-compose",
+    "base_image": "python:3.14.0b1-slim-bookworm",
+    "description": "Python 3.14 development environment with essential packages and debugging support"
+  },
+  "docker-python-cuda": {
+    "name": "Python CUDA Workspace (Docker)",
+    "path": "workspaces/python.cuda.template",
+    "port": 3004,
+    "container": "python.cuda.workspace",
+    "image": "python.cuda.workspace.image",
+    "volume": "python_cuda_workspace_volume:/workspace",
+    "type": "docker-compose",
+    "base_image": "nvidia/cuda:12.9.0-cudnn-devel-ubuntu24.04",
+    "description": "Python + CUDA development with web interface support",
+    "gpu_support": true,
+    "web_port": 7860
+  },
+  "vagrant-ubuntu": {
+    "name": "Ubuntu Core VM (Vagrant)",
+    "path": "vagrant/ubuntu",
+    "port": 1000,
+    "container": "docker-ubuntu-core",
+    "image": "ubuntu-core",
+    "volume": "workspace:/workspace",
+    "type": "vagrant",
+    "ssh_user": "dev",
+    "ssh_password": "devpass",
+    "description": "Basic Ubuntu development environment with cross-platform volume mounting"
+  },
+  "vagrant-ubuntu-cuda": {
+    "name": "Ubuntu CUDA VM (Vagrant)",
+    "path": "vagrant/ubuntu_cuda",
+    "port": 2000,
+    "container": "docker-ubuntu-cuda",
+    "image": "ubuntu-cuda",
+    "volume": "workspace:/workspace",
+    "type": "vagrant",
+    "ssh_user": "dev",
+    "ssh_password": "devpass",
+    "description": "Ubuntu with NVIDIA GPU support for CUDA development",
+    "gpu_support": true
+  },
+  "vagrant-ubuntu-cuda-vnc": {
+    "name": "Ubuntu CUDA VNC VM (Vagrant)",
+    "path": "vagrant/ubuntu_cuda_vnc",
+    "port": 3000,
+    "container": "docker-ubuntu-cuda-vnc",
+    "image": "ubuntu-cuda-vnc",
+    "volume": "workspace:/workspace",
+    "type": "vagrant",
+    "ssh_user": "dev",
+    "ssh_password": "devpass",
+    "vnc_port": 6000,
+    "description": "Ubuntu with NVIDIA GPU support and VNC remote desktop access",
+    "gpu_support": true
+  },
+  "vagrant-cpp": {
+    "name": "C++ Development VM (Vagrant)",
+    "path": "vagrant/cpp",
+    "port": 1002,
+    "container": "docker-cpp",
+    "image": "cpp_core_latest",
+    "volume": "workspace:/workspace",
+    "type": "vagrant",
+    "ssh_user": "dev",
+    "ssh_password": "devpass",
+    "description": "C++ development environment with build tools and cross-platform support"
+  },
+  "vagrant-python": {
+    "name": "Python Development VM (Vagrant)",
+    "path": "vagrant/python",
+    "port": 1001,
+    "container": "docker-python-core",
+    "image": "python-core-latest",
+    "volume": "workspace:/workspace",
+    "type": "vagrant",
+    "ssh_user": "dev",
+    "ssh_password": "devpass",
+    "description": "Python development environment with essential packages and cross-platform support"
+  }
+}
