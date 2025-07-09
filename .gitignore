@@ -1,13 +1,57 @@
-# vagrant folder
-.vagrant
-
-# keys
+# Vagrant
+.vagrant/
 vagrant_docker_key
 vagrant_docker_key.pub
 
+# SSH Keys
 id_rsa
 id_rsa.pub
 
-# ignore workspace
-workspace/*
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.egg-info/
+.installed.cfg
+*.egg
+dist/
+build/
+*.whl
 
+# Docker
+# Ignore Docker-related build contexts and temporary files
+.dockerignore
+
+# IDEs and OS
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Ignore workspace directory content, but not the directory itself
+workspace/*
+!workspace/.gitkeep # if you want to keep the directory in git
