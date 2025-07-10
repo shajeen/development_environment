@@ -1,6 +1,9 @@
 # Use the official GCC image as the base image for the C++ development environment.
 FROM gcc:latest
 
+# Accept build argument for dev password
+ARG DEV_PASSWORD=devpass
+
 # Set metadata for the Docker image, including the maintainer's name and email.
 LABEL maintainer="Shajeen Ahamed <shajeenahmed@gmail.com>"
 
@@ -27,9 +30,9 @@ RUN apt-get update && \
 RUN mkdir /var/run/sshd
 
 # Create a new user 'dev' with a home directory and bash as the default shell.
-# Set a password for 'dev', add 'dev' to the 'sudo' group, and set up SSH directory permissions.
+# Set password from build argument, add 'dev' to the 'sudo' group, and set up SSH directory permissions.
 RUN useradd -ms /bin/bash dev && \
-    echo "dev:devpass" | chpasswd && \
+    echo "dev:${DEV_PASSWORD}" | chpasswd && \
     adduser dev sudo && \
     mkdir /home/dev/.ssh && \
     chmod 700 /home/dev/.ssh && \

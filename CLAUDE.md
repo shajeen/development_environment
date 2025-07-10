@@ -121,10 +121,56 @@ python3 tests/test_gui.py
 4. **Cloning**: Users can clone existing environments to create customized versions
 5. **Status Monitoring**: Real-time status updates for running containers and environments
 
+## Container Credential Management System
+
+The application implements a secure credential management system for container access:
+
+### Credential Workflow
+1. **Build Trigger**: When users click "Build" for Docker environments, a credentials modal appears
+2. **User Input**: Modal collects username (default: "dev") and custom password
+3. **Server Storage**: Credentials stored in-memory via `/api/credentials/<env_key>` endpoints
+4. **Build Integration**: `DEV_PASSWORD` build argument passed to Docker during build process
+5. **Password Setting**: Dockerfile uses `ARG DEV_PASSWORD` and `echo "dev:${DEV_PASSWORD}" | chpasswd`
+
+### Key Files for Credential System
+- **Frontend Modal**: `src/web/templates/index.html` (lines 251-284)
+- **JavaScript Functions**: `showCredentialsForBuild()`, `proceedWithBuild()`, `togglePasswordVisibility()`
+- **Backend API**: `src/web/app.py` - GET/POST `/api/credentials/<env_key>` (lines 700-734)
+- **Build Integration**: `run_command_with_output_and_credentials()` function
+- **Docker Templates**: All Dockerfiles accept `ARG DEV_PASSWORD=devpass`
+
+### Security Features
+- In-memory credential storage (cleared on restart)
+- Password masking in UI display
+- Environment-specific credentials (not global)
+- Fallback to default "devpass" if no custom credentials set
+- Credentials only prompted for Docker environments, not Vagrant
+
+## Architecture Deep Dive
+
+### Web Application Architecture
+- **Flask + SocketIO**: Real-time WebSocket communication for build/operation status
+- **Threading**: Non-blocking operations using `threading.Thread` for long-running commands
+- **Caching**: Status cache with 5-second TTL to reduce Docker API calls
+- **Error Handling**: Graceful handling of "No such object" Docker errors (logged as debug, not error)
+
+### Environment Configuration System
+- **JSON Configuration**: `docker_environments.json` stores environment definitions
+- **Fallback Defaults**: Hardcoded defaults in `DockerEnvironmentManager.__init__()` if config missing
+- **Dynamic Loading**: Environments loaded/reloaded via `load_environments()` method
+- **Cloning Logic**: `clone_environment()` creates new template directories with modified configs
+
+### Docker vs Vagrant Distinction
+- **Docker Environments**: Use docker-compose with build args for credentials
+- **Vagrant Environments**: Use Vagrantfile with SSH key authentication
+- **Path Structure**: `templates/docker/` vs `templates/vagrant/` for respective types
+- **Build Process**: Different command execution paths based on environment type
+
 ## Important Implementation Details
 
-- The GUI uses threading and queues for non-blocking Docker operations
-- Environment paths are relative to the project root (`templates/docker/` or `templates/vagrant/`)
-- The application supports both Docker Compose and Vagrant-based environments
-- Container and image information can be viewed through dedicated dialogs
-- Environment cloning creates new template directories with modified configurations
+- **Command Execution**: All Docker/Vagrant commands run through `run_command()` with proper error handling
+- **Environment Status**: Comprehensive status checking via `get_container_status()` and `get_vagrant_status()`
+- **Real-time Updates**: WebSocket events (`refresh_status`, `refresh_environments`) for UI updates
+- **Template Management**: Environment templates can be cloned and customized through UI
+- **Volume Persistence**: Named Docker volumes for workspace data persistence
+- **Multi-Platform Support**: Cross-platform scripts (`.sh` and `.ps1`) for Vagrant environments

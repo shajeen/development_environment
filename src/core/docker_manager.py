@@ -166,7 +166,11 @@ class DockerEnvironmentManager:
                 check=False
             )
             if result.returncode != 0:
-                logger.error(f"Command failed: {' '.join(command)}\nStdout: {result.stdout}\nStderr: {result.stderr}")
+                # Only log as error if it's not a "No such object" docker inspect error
+                if "inspect" in command and "No such object" in result.stderr:
+                    logger.debug(f"Container/image not found (expected): {' '.join(command)}")
+                else:
+                    logger.error(f"Command failed: {' '.join(command)}\nStdout: {result.stdout}\nStderr: {result.stderr}")
             return result.returncode, result.stdout, result.stderr
         except Exception as e:
             logger.exception(f"Exception while running command: {' '.join(command)}")
@@ -676,80 +680,17 @@ class DockerEnvironmentManager:
             # Update container name, image, and ports
             service['container_name'] = config['container']
             service['image'] = config['image']
-            service['ports'] = [f"{config['port']}:22"]
-            
-            # Update dockerfile path
-            if 'build' in service and 'dockerfile' in service['build']:
-                service['build']['dockerfile'] = config['path'] + '/Dockerfile'
-            
-            # Update volumes
-            if 'volumes' in service:
-                volume_name = config['volume'].split(':')[0]  # Get volume name before colon
-                service['volumes'] = [config['volume']]  # Use full volume specification
-                
-                # Update volume definition
-                if 'volumes' in compose_data:
-                    compose_data['volumes'] = {volume_name: {}}
-            
+            if 'ports' not in service or not isinstance(service['ports'], list):
+                service['ports'] = []
+            # Remove any existing port mappings for port 22
+            service['ports'] = [p for p in service['ports'] if ':22' not in p]
+            service['ports'].append(f"{config['port']}:22")
+
             # Write updated compose file
             with open(compose_file, 'w') as f:
                 yaml.dump(compose_data, f, default_flow_style=False)
                 
         except Exception as e:
             logger.error(f"Error updating docker-compose.yaml at {compose_file}: {e}")
-    
-    def update_vagrantfile(self, env_path: Path, config: dict):
-        """Update Vagrantfile with new configuration"""
-        vagrantfile = env_path / "Vagrantfile"
-        if not vagrantfile.exists():
-            return
-        
-        try:
-            with open(vagrantfile, 'r') as f:
-                content = f.read()
-            
-            # Update the configuration in the Vagrantfile
-            # This is a comprehensive text replacement approach
-            
-            # Extract the container name for vm.define
-            container_name = config["container"]
-            vm_define_name = container_name
-            
-            # Update vm.define name (more robust pattern)
-            old_define_pattern = r'config\\.vm\\.define\\s+"[^"]*"'
-            new_define = f'config.vm.define "{vm_define_name}"'
-            content = re.sub(old_define_pattern, new_define, content)
-            
-            # Update image name
-            old_image_pattern = r'd\\.image\\s*=\\s*"[^"]*"'
-            new_image = f'd.image = "{config["image"]}"'
-            content = re.sub(old_image_pattern, new_image, content)
-            
-            # Update ports - more flexible pattern
-            old_port_pattern = r'd\\.ports\\s*=\\s*\["[^"]*"\]'
-            new_ports = f'd.ports = ["{config["port"]}:22"]'
-            content = re.sub(old_port_pattern, new_ports, content)
-            
-            # Update SSH port
-            old_ssh_port_pattern = r'ssh\\.port\\s*=\\s*\\d+'
-            new_ssh_port = f'ssh.port = {config["port"]}'
-            content = re.sub(old_ssh_port_pattern, new_ssh_port, content)
-            
-            # Update port in comments if they exist
-            old_comment_pattern = r'# Only map port 22 to \\d+'
-            new_comment = f'# Only map port 22 to {config["port"]}'
-            content = re.sub(old_comment_pattern, new_comment, content)
-            
-            # Update connection port in comments
-            old_connect_comment_pattern = r'# Connect using port \\d+'
-            new_connect_comment = f'# Connect using port {config["port"]}'
-            content = re.sub(old_connect_comment_pattern, new_connect_comment, content)
-            
-            # Write updated Vagrantfile
-            with open(vagrantfile, 'w') as f:
-                f.write(content)
-                
-        except Exception as e:
-            logger.error(f"Error updating Vagrantfile at {vagrantfile}: {e}")
     
     

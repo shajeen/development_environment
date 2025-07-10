@@ -1,6 +1,9 @@
 # Use the official Python 3.14 slim-bookworm image as the base image for the Python development environment.
 FROM python:3.14.0b1-slim-bookworm
 
+# Accept build argument for dev password
+ARG DEV_PASSWORD=devpass
+
 # Set metadata for the Docker image, including the maintainer's name and email.
 LABEL MAINTAINER="Shajeen Ahamed <shajeenahmed@gmail.com>"
 
@@ -26,10 +29,10 @@ RUN ssh-keygen -A
 RUN mkdir -p /var/run/sshd
 
 # Create a new user 'dev' with a home directory and bash as the default shell.
-# Set a password for 'dev', add 'dev' to the 'sudo' group, configure sudoers for no password,
+# Set password from build argument, add 'dev' to the 'sudo' group, configure sudoers for no password,
 # and set up SSH directory permissions.
 RUN useradd -m -s /bin/bash dev && \
-    echo "dev:devpass" | chpasswd && \
+    echo "dev:${DEV_PASSWORD}" | chpasswd && \
     usermod -aG sudo dev && \
     echo "dev ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers && \
     mkdir -p /home/dev/.ssh && \

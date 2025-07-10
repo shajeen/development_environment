@@ -11,6 +11,8 @@ services:
     build:
       context: ../..
       dockerfile: docker/cpp/Dockerfile
+      args:
+        - DEV_PASSWORD=${DEV_PASSWORD:-devpass}
     # Map port 3001 on the host to port 22 (SSH) in the container.
     ports:
       - "3001:22"
@@ -19,8 +21,6 @@ services:
       - cpp.workspace.common.volume:/workspace
     # Ensure the container restarts automatically unless explicitly stopped.
     restart: unless-stopped
-    # Override the default command defined in the Dockerfile to start the SSH daemon.
-    command: ["/usr/sbin/sshd", "-D"]
     # Set environment variables within the container.
     environment:
       # Configure GIT_SSH_COMMAND to bypass strict host key checking for SSH connections.

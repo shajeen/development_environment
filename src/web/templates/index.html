@@ -60,6 +60,9 @@
                     <button class="btn btn-outline-danger btn-action" onclick="deleteEnvironment()" disabled>
                         <i class="fas fa-trash"></i> Delete
                     </button>
+                    <a href="/terminal" class="btn btn-info btn-action mt-2">
+                        <i class="fas fa-terminal"></i> Open Terminal
+                    </a>
                 </div>
                 
                 <div class="mt-3">
@@ -98,41 +101,7 @@
     </div>
 </div>
 
-<div class="row mt-4">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5><i class="fas fa-terminal"></i> Output</h5>
-                <button class="btn btn-sm btn-outline-secondary" onclick="clearOutput()">
-                    <i class="fas fa-eraser"></i> Clear
-                </button>
-            </div>
-            <div class="card-body">
-                <!-- Progress Bar -->
-                <div id="progress-container" class="mb-3" style="display: none;">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <span id="progress-label" class="text-muted">Processing...</span>
-                        <span id="progress-status" class="badge bg-primary">In Progress</span>
-                    </div>
-                    <div class="progress">
-                        <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-                             role="progressbar" style="width: 0%"></div>
-                    </div>
-                </div>
-                
-                <!-- Activity Indicator -->
-                <div id="activity-indicator" class="text-center mb-3" style="display: none;">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2 text-muted" id="activity-message">Operation in progress...</p>
-                </div>
-                
-                <div id="output" class="output-area"></div>
-            </div>
-        </div>
-    </div>
-</div>
+
 
 <!-- Edit Environment Modal -->
 <div class="modal fade" id="editModal" tabindex="-1">
@@ -248,6 +217,41 @@
     </div>
 </div>
 
+<!-- Container Credentials Modal -->
+<div class="modal fade" id="credentialsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Container Credentials</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted">Please set the username and password for the container:</p>
+                <form id="credentialsForm">
+                    <div class="mb-3">
+                        <label for="container-username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="container-username" value="dev" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="container-password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="container-password" required>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="show-password">
+                        <label class="form-check-label" for="show-password">
+                            Show password
+                        </label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="proceedWithBuild()">Build Environment</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
@@ -259,7 +263,7 @@
     // Socket event handlers
     socket.on('output', function(data) {
         console.log('Received output:', data.message);
-        appendOutput(data.message);
+        appendToTerminal(data.message);
     });
 
     socket.on('refresh_status', function() {
@@ -271,9 +275,7 @@
         selectedEnv = null;
         updateUI();
         
-        // Hide progress indicators when environments refresh
-        hideProgressBar();
-        hideActivityIndicator();
+        // Reset button states when environments refresh
         setAllButtonsLoading(false);
     });
 
@@ -358,12 +360,6 @@
         return col;
     }
 
-    function selectEnvironment(envKey) {
-        selectedEnv = envKey;
-        displayEnvironments(); // Refresh to show selection
-        updateEnvironmentInfo(envKey);
-        updateUI();
-    }
 
     function updateEnvironmentInfo(envKey) {
         fetch(`/api/environment/${envKey}`)
@@ -384,7 +380,8 @@
                     <p><strong>Image:</strong> ${data.image}</p>
                     <p><strong>Volume:</strong> ${data.volume}</p>
                     <p><strong>SSH Command:</strong> <code>${data.ssh_command}</code></p>
-                    <p><strong>Credentials:</strong> ${data.credentials}</p>
+                    <p><strong>Username:</strong> <span id="env-username">-</span></p>
+                    <p><strong>Password:</strong> <span id="env-password">-</span></p>
                     <p><strong>Description:</strong> ${data.description}</p>
                 `;
             })
@@ -408,12 +405,95 @@
 
     function buildEnvironment() {
         if (!selectedEnv) return;
+        
+        // Check if this is a docker environment (not vagrant)
+        const env = environments.find(e => e.key === selectedEnv);
+        if (env && env.type !== 'vagrant') {
+            // Show credentials modal for docker environments
+            showCredentialsForBuild();
+        } else {
+            // For vagrant environments, build directly
+            proceedWithBuild();
+        }
+    }
+
+    function showCredentialsForBuild() {
+        const env = environments.find(e => e.key === selectedEnv);
+        const credentials = containerCredentials[selectedEnv];
+        
+        // Pre-populate form if credentials exist
+        if (credentials) {
+            document.getElementById('container-username').value = credentials.username;
+            document.getElementById('container-password').value = credentials.password;
+        } else {
+            document.getElementById('container-username').value = 'dev';
+            document.getElementById('container-password').value = '';
+        }
+        
+        // Show/hide password toggle (remove existing listener first)
+        const showPasswordCheckbox = document.getElementById('show-password');
+        showPasswordCheckbox.removeEventListener('change', togglePasswordVisibility);
+        showPasswordCheckbox.addEventListener('change', togglePasswordVisibility);
+        
+        new bootstrap.Modal(document.getElementById('credentialsModal')).show();
+    }
+
+    function proceedWithBuild() {
+        // Check if we're in a modal (Docker environment needing credentials)
+        const modal = document.getElementById('credentialsModal');
+        const isModalVisible = modal && modal.classList.contains('show');
+        
+        if (isModalVisible) {
+            // We're in the credentials modal - validate and save credentials
+            const username = document.getElementById('container-username').value;
+            const password = document.getElementById('container-password').value;
+            
+            if (!username || !password) {
+                alert('Please enter both username and password');
+                return;
+            }
+            
+            // Store credentials
+            containerCredentials[selectedEnv] = {
+                username: username,
+                password: password
+            };
+            
+            // Send credentials to server
+            fetch(`/api/credentials/${selectedEnv}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: username, password: password})
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.error) {
+                    alert('Error saving credentials: ' + result.error);
+                    return;
+                }
+                
+                // Close modal
+                bootstrap.Modal.getInstance(document.getElementById('credentialsModal')).hide();
+                
+                // Update UI display
+                updateCredentialsDisplay();
+                
+                // Now proceed with build
+                startBuildProcess();
+            })
+            .catch(error => {
+                alert('Error saving credentials: ' + error.message);
+            });
+        } else {
+            // Direct build (Vagrant or when no modal needed)
+            startBuildProcess();
+        }
+    }
+
+    function startBuildProcess() {
         const noCache = document.getElementById('no-cache').checked;
         console.log('Building environment:', selectedEnv, 'no_cache:', noCache);
         
-        // Show progress indicators
-        showProgressBar(`Building ${selectedEnv}`, 'Building');
-        showActivityIndicator(`Building ${selectedEnv} environment...`);
         setAllButtonsLoading(true);
         
         socket.emit('build_environment', {env_key: selectedEnv, no_cache: noCache});
@@ -423,9 +503,6 @@
         if (!selectedEnv) return;
         console.log('Starting environment:', selectedEnv);
         
-        // Show progress indicators
-        showProgressBar(`Starting ${selectedEnv}`, 'Starting');
-        showActivityIndicator(`Starting ${selectedEnv} environment...`);
         setAllButtonsLoading(true);
         
         socket.emit('start_environment', {env_key: selectedEnv});
@@ -435,9 +512,6 @@
         if (!selectedEnv) return;
         console.log('Stopping environment:', selectedEnv);
         
-        // Show progress indicators
-        showProgressBar(`Stopping ${selectedEnv}`, 'Stopping');
-        showActivityIndicator(`Stopping ${selectedEnv} environment...`);
         setAllButtonsLoading(true);
         
         socket.emit('stop_environment', {env_key: selectedEnv});
@@ -446,9 +520,6 @@
     function restartEnvironment() {
         if (!selectedEnv) return;
         
-        // Show progress indicators
-        showProgressBar(`Restarting ${selectedEnv}`, 'Restarting');
-        showActivityIndicator(`Restarting ${selectedEnv} environment...`);
         setAllButtonsLoading(true);
         
         socket.emit('restart_environment', {env_key: selectedEnv});
@@ -457,9 +528,6 @@
     function clearEnvironment() {
         if (!selectedEnv) return;
         if (confirm(`Are you sure you want to clear the ${selectedEnv} environment?`)) {
-            // Show progress indicators
-            showProgressBar(`Clearing ${selectedEnv}`, 'Clearing');
-            showActivityIndicator(`Clearing ${selectedEnv} environment...`);
             setAllButtonsLoading(true);
             
             const removeVolumes = document.getElementById('remove-volumes').checked;
@@ -471,9 +539,6 @@
         if (!selectedEnv) return;
         const env = environments.find(e => e.key === selectedEnv);
         if (confirm(`Are you sure you want to delete the '${env.name}' environment?\n\nThis will permanently remove the environment configuration.`)) {
-            // Show progress indicators
-            showProgressBar(`Deleting ${selectedEnv}`, 'Deleting');
-            showActivityIndicator(`Deleting ${selectedEnv} environment...`);
             setAllButtonsLoading(true);
             
             const removeVolumes = document.getElementById('delete-volumes').checked;
@@ -748,5 +813,105 @@
             }
         });
     }
+
+    // Container credentials management
+    let containerCredentials = {};
+
+    function togglePasswordVisibility() {
+        const passwordField = document.getElementById('container-password');
+        passwordField.type = this.checked ? 'text' : 'password';
+    }
+
+    function updateCredentialsDisplay() {
+        const credentials = containerCredentials[selectedEnv];
+        if (credentials) {
+            document.getElementById('env-username').textContent = credentials.username;
+            document.getElementById('env-password').textContent = '●'.repeat(credentials.password.length);
+        } else {
+            document.getElementById('env-username').textContent = '-';
+            document.getElementById('env-password').textContent = '-';
+        }
+    }
+
+    function selectEnvironment(envKey) {
+        selectedEnv = envKey;
+        displayEnvironments(); // Refresh to show selection
+        updateEnvironmentInfo(envKey);
+        loadCredentials(envKey);
+        updateUI();
+    }
+
+    function loadCredentials(envKey) {
+        fetch(`/api/credentials/${envKey}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.username) {
+                    containerCredentials[envKey] = {
+                        username: data.username,
+                        password: '●'.repeat(data.password_length)
+                    };
+                } else {
+                    delete containerCredentials[envKey];
+                }
+                updateCredentialsDisplay();
+            })
+            .catch(error => {
+                console.error('Error loading credentials:', error);
+                delete containerCredentials[envKey];
+                updateCredentialsDisplay();
+            });
+    }
+
+    function cloneEnvironment() {
+        if (!selectedEnv) return;
+        const env = environments.find(e => e.key === selectedEnv);
+        
+        const newKey = prompt(`Enter new environment key (current: ${selectedEnv}):`);
+        if (!newKey || newKey === selectedEnv) {
+            alert('Please enter a valid, unique environment key.');
+            return;
+        }
+        
+        const newName = prompt(`Enter new environment name (current: ${env.name}):`);
+        if (!newName) {
+            alert('Please enter a valid environment name.');
+            return;
+        }
+        
+        const newPort = prompt(`Enter new port (current: ${env.port}):`);
+        if (!newPort || isNaN(newPort)) {
+            alert('Please enter a valid port number.');
+            return;
+        }
+        
+        setAllButtonsLoading(true);
+        
+        fetch('/api/clone-environment', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                source_env: selectedEnv,
+                new_key: newKey,
+                new_name: newName,
+                new_port: parseInt(newPort)
+            })
+        })
+        .then(response => response.json())
+        .then(result => {
+            if (result.error) {
+                alert('Error cloning environment: ' + result.error);
+            } else {
+                alert('Environment cloned successfully!');
+                loadEnvironments();
+            }
+            setAllButtonsLoading(false);
+        })
+        .catch(error => {
+            alert('Error cloning environment: ' + error.message);
+            setAllButtonsLoading(false);
+        });
+    }
+
+    
 </script>
 {% endblock %}
